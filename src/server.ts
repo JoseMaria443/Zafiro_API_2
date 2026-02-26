@@ -1,8 +1,9 @@
-import { createApp } from './app.js';
+import { createApp } from './app';
 
 const app = createApp();
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`API Hexagonal corriendo en http://localhost:${PORT}`);
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log('Servidor ZAFIRO corriendo correctamente en: ' + PORT);
+  console.log('Entorno: ' + (process.env.NODE_ENV || 'development'));
 });

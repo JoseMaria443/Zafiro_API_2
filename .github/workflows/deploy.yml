@@ -1,0 +1,25 @@
+name: Deploy Zafiro API
+
+on:
+  push:
+    branches: [ main ] # Cambia esto si tu rama principal se llama 'master'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to AWS via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/Zafiro_API_2
+            git pull origin main
+            npm install
+            # Reiniciamos el proceso existente para aplicar cambios
+            pm2 restart zafiro-api
