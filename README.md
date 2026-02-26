@@ -2,3 +2,5 @@ La API sera diseñada con estructura hexagonal, servira como conexión entre la 
 
 
 Todos los comits son iguales ya que el repositorio fue previavente creado pero por sucesos no planeados quedo inutilizable.
+
+4to intento con github
