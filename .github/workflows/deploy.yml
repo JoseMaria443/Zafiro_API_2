@@ -2,7 +2,7 @@ name: Deploy Zafiro API
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # Asegúrate de que tu rama se llame main, si es master cámbialo aquí
 
 jobs:
   deploy:
@@ -17,9 +17,25 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true # Detiene el proceso si algún comando falla
           script: |
+            # 1. Cargar el entorno de NVM (Soluciona el error 'npm/pm2 command not found')
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            # 2. Entrar al directorio del proyecto
             cd ~/Zafiro_API_2
+
+            # 3. Actualizar el código desde GitHub
+            # Nota: Si esto falla, recuerda ejecutar 'ssh -T git@github.com' una vez en tu servidor
             git pull origin main
+
+            # 4. Instalar dependencias de producción
             npm install
-            # Reiniciamos usando el intérprete de ts-node que ya probamos que funciona
+
+            # 5. Reiniciar la API con PM2 usando TypeScript (ts-node)
+            # Intentamos reiniciar; si no existe el proceso, lo creamos desde cero.
             pm2 restart zafiro-api || pm2 start src/server.ts --name "zafiro-api" --interpreter ts-node
+
+            # 6. Guardar el estado de PM2 para que sobreviva a reinicios del servidor
+            pm2 save
