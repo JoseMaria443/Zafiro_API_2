@@ -145,11 +145,11 @@ export class ActivityPostController {
         date: date.toISOString().split('T')[0],
         data: activities.map((activity: Activity) => ({
           id: activity.id,
+          title: activity.details.title,
+          descripcion: activity.details.descripcion,
           Ubicacion: activity.details.Ubicacion,
           prioridad: activity.priority.valor,
-          color: activity.priority.coloracion,
-          prioridad: activity.priority.valor,
-          color: activity.priority.colores,
+          color: activity.priority.color,
         })),
       });
     } catch (error) {

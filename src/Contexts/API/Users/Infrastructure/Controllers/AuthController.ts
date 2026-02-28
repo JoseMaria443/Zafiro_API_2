@@ -86,7 +86,6 @@ export class AuthController {
           id: user.id,
           correo: user.correo,
           nombre: user.nombre,
-          createdAt: user.createdAt,
         },
       });
     } catch (error) {
