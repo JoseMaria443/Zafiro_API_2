@@ -2,7 +2,7 @@ import { Tag } from '../Domain/Tag.js';
 import type { ITagRepository } from '../Domain/TagRepository.js';
 
 export interface CreateTagRequest {
-  id: string;
+  id: number;
   idUsuario: number;
   nombre: string;
   color: string;

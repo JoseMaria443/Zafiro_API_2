@@ -3,27 +3,31 @@ import { ActivityPriority } from './ActivityPriority.js';
 import { Repetition } from './Repetition.js';
 
 export class Activity {
-  readonly id: string;
+  readonly id: number;
+  readonly idClerk: number;
   readonly idUsuario: number;
   readonly idEtiqueta: number;
+  readonly fechaCreacion: string;
   readonly details: ActivityDetails;
   readonly priority: ActivityPriority;
   readonly repetition: Repetition;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
 
   constructor(
-    id: string,
+    id: number,
+    idClerk: number,
     idUsuario: number,
     idEtiqueta: number,
+    fechaCreacion: string,
     details: ActivityDetails,
     priority: ActivityPriority,
-    repetition: Repetition,
-    createdAt: Date = new Date(),
-    updatedAt: Date = new Date()
+    repetition: Repetition
   ) {
-    if (!id || id.trim().length === 0) {
-      throw new Error('El ID de la actividad no puede estar vacío');
+    if (id < 1) {
+      throw new Error('ID de actividad inválido');
+    }
+
+    if (idClerk < 1) {
+      throw new Error('ID de clerk inválido');
     }
 
     if (idUsuario < 1) {
@@ -34,18 +38,22 @@ export class Activity {
       throw new Error('ID de etiqueta inválido');
     }
 
+    if (!fechaCreacion || fechaCreacion.trim().length === 0) {
+      throw new Error('La fecha de creación no puede estar vacía');
+    }
+
     this.id = id;
+    this.idClerk = idClerk;
     this.idUsuario = idUsuario;
     this.idEtiqueta = idEtiqueta;
+    this.fechaCreacion = fechaCreacion;
     this.details = details;
     this.priority = priority;
     this.repetition = repetition;
-    this.createdAt = createdAt;
-    this.updatedAt = updatedAt;
   }
 
   occursOn(date: Date): boolean {
-    return this.repetition.isOccurringOn(date);
+    return this.repetition.fechaInicio <= date && date <= this.repetition.fechaFin;
   }
 
   isActive(): boolean {

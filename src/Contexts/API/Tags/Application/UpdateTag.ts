@@ -2,7 +2,7 @@ import { Tag } from '../Domain/Tag.js';
 import type { ITagRepository } from '../Domain/TagRepository.js';
 
 export interface UpdateTagRequest {
-  id: string;
+  id: number;
   nombre?: string;
   color?: string;
 }
@@ -21,9 +21,7 @@ export class UpdateTagUseCase {
       tag.id,
       tag.idUsuario,
       request.nombre || tag.nombre,
-      request.color || tag.color,
-      tag.createdAt,
-      new Date()
+      request.color || tag.color
     );
 
     await this.tagRepository.update(updatedTag);

@@ -35,8 +35,8 @@ export class SearchUserActivitiesUseCase {
     return await this.activityRepository.findByTagId(idEtiqueta);
   }
 
-  async activityById(id: string): Promise<Activity | null> {
-    if (!id || id.trim().length === 0) {
+  async activityById(id: number): Promise<Activity | null> {
+    if (id < 1) {
       throw new Error('ID de actividad inválido');
     }
 

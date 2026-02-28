@@ -1,21 +1,17 @@
 export class Tag {
-  readonly id: string;
+  readonly id: number;
   readonly idUsuario: number;
   readonly nombre: string;
   readonly color: string;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
 
   constructor(
-    id: string,
+    id: number,
     idUsuario: number,
     nombre: string,
-    color: string,
-    createdAt: Date = new Date(),
-    updatedAt: Date = new Date()
+    color: string
   ) {
-    if (!id || id.trim().length === 0) {
-      throw new Error('El ID del tag no puede estar vacío');
+    if (id < 1) {
+      throw new Error('El ID del tag no puede ser menor a 1');
     }
 
     if (idUsuario < 1) {
@@ -39,7 +35,5 @@ export class Tag {
     this.idUsuario = idUsuario;
     this.nombre = nombre;
     this.color = color;
-    this.createdAt = createdAt;
-    this.updatedAt = updatedAt;
   }
 }

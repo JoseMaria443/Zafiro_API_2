@@ -4,7 +4,7 @@ export interface IActivityRepository {
 
   save(activity: Activity): Promise<void>;
 
-  findById(id: string): Promise<Activity | null>;
+  findById(id: number): Promise<Activity | null>;
 
   findByUserId(idUsuario: number): Promise<Activity[]>;
 
@@ -14,5 +14,5 @@ export interface IActivityRepository {
 
   update(activity: Activity): Promise<void>;
 
-  delete(id: string): Promise<void>;
+  delete(id: number): Promise<void>;
 }

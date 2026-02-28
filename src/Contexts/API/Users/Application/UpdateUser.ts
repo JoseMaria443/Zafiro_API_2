@@ -5,6 +5,7 @@ export interface UpdateUserRequest {
   id: number;
   nombre?: string;
   password?: string;
+  tokenGoogle?: string;
 }
 
 export class UpdateUserUseCase {
@@ -22,8 +23,7 @@ export class UpdateUserUseCase {
       user.correo,
       request.password || user.password,
       request.nombre || user.nombre,
-      user.createdAt,
-      new Date()
+      request.tokenGoogle || user.tokenGoogle
     );
 
     await this.userRepository.update(updatedUser);

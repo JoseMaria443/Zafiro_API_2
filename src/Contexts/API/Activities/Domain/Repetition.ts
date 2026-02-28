@@ -1,33 +1,37 @@
-export enum DayOfWeek {
-  MON = 'MON',
-  TUE = 'TUE',
-  WED = 'WED',
-  THU = 'THU',
-  FRI = 'FRI',
-  SAT = 'SAT',
-  SUN = 'SUN',
-}
-
 export class Repetition {
-  readonly id: string | undefined;
+  readonly id: number;
+  readonly idActividad: number;
   readonly idFrecuencia: number;
-  readonly diasSemana: DayOfWeek[];
+  readonly diasSemana: string;
   readonly fechaInicio: Date;
   readonly fechaFin: Date;
 
   constructor(
+    id: number,
+    idActividad: number,
     idFrecuencia: number,
-    diasSemana: DayOfWeek[],
+    diasSemana: string,
     fechaInicio: Date,
-    fechaFin: Date,
-    id: string | undefined = undefined
+    fechaFin: Date
   ) {
+    if (id < 1) {
+      throw new Error('ID de repetición inválido');
+    }
+
+    if (idActividad < 1) {
+      throw new Error('ID de actividad inválido');
+    }
+
     if (idFrecuencia < 1) {
       throw new Error('ID de frecuencia inválido');
     }
 
-    if (diasSemana.length === 0) {
-      throw new Error('Debe especificar al menos un día de la semana');
+    if (!diasSemana || diasSemana.trim().length === 0) {
+      throw new Error('Debe especificar los días de la semana');
+    }
+
+    if (diasSemana.length > 25) {
+      throw new Error('Los días de la semana no pueden exceder 25 caracteres');
     }
 
     if (isNaN(fechaInicio.getTime())) {
@@ -43,6 +47,7 @@ export class Repetition {
     }
 
     this.id = id;
+    this.idActividad = idActividad;
     this.idFrecuencia = idFrecuencia;
     this.diasSemana = diasSemana;
     this.fechaInicio = fechaInicio;
@@ -55,7 +60,7 @@ export class Repetition {
 
   isOccurringOn(date: Date): boolean {
     const dayIndex = date.getDay();
-    const dayMap = [DayOfWeek.SUN, DayOfWeek.MON, DayOfWeek.TUE, DayOfWeek.WED, DayOfWeek.THU, DayOfWeek.FRI, DayOfWeek.SAT];
+    const dayMap = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const dayOfWeek = dayMap[dayIndex];
 
     return this.isActive(date) && dayOfWeek !== undefined && this.diasSemana.includes(dayOfWeek);

@@ -3,16 +3,14 @@ export class User {
   readonly correo: string;
   readonly password: string;
   readonly nombre: string;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
+  readonly tokenGoogle?: string;
 
   constructor(
     id: number,
     correo: string,
     password: string,
     nombre: string,
-    createdAt: Date = new Date(),
-    updatedAt: Date = new Date()
+    tokenGoogle?: string
   ) {
     if (id < 1) {
       throw new Error('ID de usuario inválido');
@@ -35,7 +33,6 @@ export class User {
     this.correo = correo;
     this.password = password;
     this.nombre = nombre;
-    this.createdAt = createdAt;
-    this.updatedAt = updatedAt;
+    this.tokenGoogle = tokenGoogle;
   }
 }
