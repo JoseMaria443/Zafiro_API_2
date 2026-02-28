@@ -1,16 +1,16 @@
 export class ActivityDetails {
   readonly id: number;
   readonly idActividad: number;
-  readonly title: string;
-  readonly descripcion: string;
-  readonly Ubicacion: string;
+  readonly summary: string;
+  readonly description?: string;
+  readonly location?: string;
 
   constructor(
     id: number,
     idActividad: number,
-    title: string,
-    descripcion: string,
-    Ubicacion: string
+    summary: string,
+    description?: string,
+    location?: string
   ) {
     if (id < 1) {
       throw new Error('ID de detalles inválido');
@@ -20,28 +20,22 @@ export class ActivityDetails {
       throw new Error('ID de actividad inválido');
     }
 
-    if (!title || title.trim().length === 0) {
-      throw new Error('El título no puede estar vacío');
-    }
-    if (!descripcion || descripcion.trim().length === 0) {
-      throw new Error('La descripción no puede estar vacía');
-    }
-    if (!Ubicacion || Ubicacion.trim().length === 0) {
-      throw new Error('La ubicación no puede estar vacía');
+    if (!summary || summary.trim().length === 0) {
+      throw new Error('El resumen (summary) no puede estar vacío');
     }
 
     this.id = id;
     this.idActividad = idActividad;
-    this.title = title;
-    this.descripcion = descripcion;
-    this.Ubicacion = Ubicacion;
+    this.summary = summary;
+    this.description = description;
+    this.location = location;
   }
 
   equals(other: ActivityDetails): boolean {
     return (
-      this.title === other.title &&
-      this.descripcion === other.descripcion &&
-      this.Ubicacion === other.Ubicacion
+      this.summary === other.summary &&
+      this.description === other.description &&
+      this.location === other.location
     );
   }
 }

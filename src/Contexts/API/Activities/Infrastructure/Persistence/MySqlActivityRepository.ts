@@ -6,7 +6,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     throw new Error('Implementar con conexión MySQL');
   }
 
-  async findById(id: number): Promise<Activity | null> {
+  async findById(id: string): Promise<Activity | null> {
     throw new Error('Implementar con conexión MySQL');
   }
 
@@ -26,7 +26,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     throw new Error('Implementar con conexión MySQL');
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     throw new Error('Implementar con conexión MySQL');
   }
 }

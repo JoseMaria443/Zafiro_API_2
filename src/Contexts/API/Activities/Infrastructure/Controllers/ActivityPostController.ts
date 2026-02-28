@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { CreateActivityUseCase } from '../../Application/CreateActivity.js';
 import { SearchUserActivitiesUseCase } from '../../Application/SearchUserActivities.js';
 import type { CreateActivityRequest } from '../../Application/CreateActivity.js';
+import type { EventDateTime } from '../../Domain/Activity.js';
 import { Activity } from '../../Domain/Activity.js';
 
 export class ActivityPostController {
@@ -14,14 +15,18 @@ export class ActivityPostController {
     try {
       const {
         id,
-        idClerk,
         idUsuario,
-        idEtiqueta,
-        fechaCreacion,
+        summary,
+        start,
+        end,
+        created,
+        updated,
+        status,
         detailsId,
-        title,
-        descripcion,
-        Ubicacion,
+        description,
+        location,
+        idEtiqueta,
+        recurringEventId,
         priorityId,
         prioridad,
         color,
@@ -34,22 +39,26 @@ export class ActivityPostController {
 
       const request: CreateActivityRequest = {
         id,
-        idClerk,
         idUsuario,
-        idEtiqueta,
-        fechaCreacion,
+        summary,
+        start: start as EventDateTime,
+        end: end as EventDateTime,
+        created,
+        updated,
+        status,
         detailsId,
-        title,
-        descripcion,
-        Ubicacion,
+        description,
+        location,
+        idEtiqueta,
+        recurringEventId,
         priorityId,
         prioridad,
         color,
         repetitionId,
         idFrecuencia,
         diasSemana,
-        fechaInicio: new Date(fechaInicio),
-        fechaFin: new Date(fechaFin),
+        fechaInicio: fechaInicio ? new Date(fechaInicio) : undefined,
+        fechaFin: fechaFin ? new Date(fechaFin) : undefined,
       };
 
       const activity = await this.createActivityUseCase.execute(request);
@@ -59,18 +68,19 @@ export class ActivityPostController {
         message: 'Actividad creada correctamente',
         data: {
           id: activity.id,
-          idClerk: activity.idClerk,
           idUsuario: activity.idUsuario,
           idEtiqueta: activity.idEtiqueta,
-          fechaCreacion: activity.fechaCreacion,
-          title: activity.details.title,
-          descripcion: activity.details.descripcion,
-          Ubicacion: activity.details.Ubicacion,
-          prioridad: activity.priority.valor,
-          color: activity.priority.color,
-          diasSemana: activity.repetition.diasSemana,
-          fechaInicio: activity.repetition.fechaInicio,
-          fechaFin: activity.repetition.fechaFin,
+          summary: activity.summary,
+          start: activity.start,
+          end: activity.end,
+          created: activity.created,
+          updated: activity.updated,
+          status: activity.status,
+          recurringEventId: activity.recurringEventId,
+          description: activity.details.description,
+          location: activity.details.location,
+          prioridad: activity.priority?.valor,
+          color: activity.priority?.color,
         },
       });
     } catch (error) {
@@ -100,18 +110,19 @@ export class ActivityPostController {
         success: true,
         data: activities.map((activity: Activity) => ({
           id: activity.id,
-          idClerk: activity.idClerk,
           idUsuario: activity.idUsuario,
           idEtiqueta: activity.idEtiqueta,
-          fechaCreacion: activity.fechaCreacion,
-          title: activity.details.title,
-          descripcion: activity.details.descripcion,
-          Ubicacion: activity.details.Ubicacion,
-          prioridad: activity.priority.valor,
-          color: activity.priority.color,
-          diasSemana: activity.repetition.diasSemana,
-          fechaInicio: activity.repetition.fechaInicio,
-          fechaFin: activity.repetition.fechaFin,
+          summary: activity.summary,
+          start: activity.start,
+          end: activity.end,
+          created: activity.created,
+          updated: activity.updated,
+          status: activity.status,
+          recurringEventId: activity.recurringEventId,
+          description: activity.details.description,
+          location: activity.details.location,
+          prioridad: activity.priority?.valor,
+          color: activity.priority?.color,
         })),
       });
     } catch (error) {
@@ -145,11 +156,15 @@ export class ActivityPostController {
         date: date.toISOString().split('T')[0],
         data: activities.map((activity: Activity) => ({
           id: activity.id,
-          title: activity.details.title,
-          descripcion: activity.details.descripcion,
-          Ubicacion: activity.details.Ubicacion,
-          prioridad: activity.priority.valor,
-          color: activity.priority.color,
+          summary: activity.summary,
+          start: activity.start,
+          end: activity.end,
+          status: activity.status,
+          recurringEventId: activity.recurringEventId,
+          description: activity.details.description,
+          location: activity.details.location,
+          prioridad: activity.priority?.valor,
+          color: activity.priority?.color,
         })),
       });
     } catch (error) {
