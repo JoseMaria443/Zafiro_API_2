@@ -1,13 +1,13 @@
 export class ActivityDetails {
   readonly id: number;
-  readonly idActividad: number;
+  readonly idActividad: string;
   readonly summary: string;
   readonly description?: string;
   readonly location?: string;
 
   constructor(
     id: number,
-    idActividad: number,
+    idActividad: string,
     summary: string,
     description?: string,
     location?: string
@@ -16,7 +16,7 @@ export class ActivityDetails {
       throw new Error('ID de detalles inválido');
     }
 
-    if (idActividad < 1) {
+    if (!idActividad || idActividad.trim().length === 0) {
       throw new Error('ID de actividad inválido');
     }
 

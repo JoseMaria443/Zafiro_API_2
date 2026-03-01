@@ -8,7 +8,6 @@ const server = app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Entorno: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// Manejo de errores globales del servidor
 server.on('error', (error: any) => {
   if (error.code === 'EADDRINUSE') {
     console.error(`El puerto ${PORT} ya está en uso.`);
