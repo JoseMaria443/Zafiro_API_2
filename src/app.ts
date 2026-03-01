@@ -11,9 +11,13 @@ import { UpdateUserUseCase } from './Contexts/API/Users/Application/UpdateUser.j
 import { DeleteUserUseCase } from './Contexts/API/Users/Application/DeleteUser.js';
 import { AuthController } from './Contexts/API/Users/Infrastructure/Controllers/AuthController.js';
 import { MySqlUserRepository } from './Contexts/API/Users/Infrastructure/Persistence/MySqlUserRepository.js';
+import { AuthMiddleware } from './Contexts/Shared/Infrastructure/Middleware/AuthMiddleware.js';
 
 export const createApp = (): Express => {
   const app = express();
+  
+  // Middleware de autenticación
+  const authMiddleware = new AuthMiddleware();
   
   // Repositorios
   const activityRepository = new MySqlActivityRepository();
@@ -61,7 +65,7 @@ export const createApp = (): Express => {
     void activityController.getUserActivitiesByDate(req, res);
   });
 
-  // Rutas de usuarios
+  // Rutas de usuarios - Públicas
   app.post('/api/auth/register', (req: Request, res: Response) => {
     void authController.register(req, res);
   });
@@ -70,16 +74,23 @@ export const createApp = (): Express => {
     void authController.login(req, res);
   });
 
-  app.get('/api/users/:id', (req: Request, res: Response) => {
-    void authController.getProfile(req, res);
+  // Rutas de usuarios - Protegidas con JWT
+  app.get('/api/users/:id', (req: Request, res: Response, next: NextFunction) => {
+    authMiddleware.authenticate(req, res, () => {
+      void authController.getProfile(req, res);
+    });
   });
 
-  app.put('/api/users/:id', (req: Request, res: Response) => {
-    void authController.update(req, res);
+  app.put('/api/users/:id', (req: Request, res: Response, next: NextFunction) => {
+    authMiddleware.authenticate(req, res, () => {
+      void authController.update(req, res);
+    });
   });
 
-  app.delete('/api/users/:id', (req: Request, res: Response) => {
-    void authController.delete(req, res);
+  app.delete('/api/users/:id', (req: Request, res: Response, next: NextFunction) => {
+    authMiddleware.authenticate(req, res, () => {
+      void authController.delete(req, res);
+    });
   });
 
   app.use((req: Request, res: Response) => {

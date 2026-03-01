@@ -5,8 +5,11 @@ import { GetUserUseCase } from '../../Application/GetUser.js';
 import { UpdateUserUseCase } from '../../Application/UpdateUser.js';
 import { DeleteUserUseCase } from '../../Application/DeleteUser.js';
 import { User } from '../../Domain/User.js';
+import { JwtTokenGenerator } from '../../../../Shared/Infrastructure/Security/JwtTokenGenerator.js';
 
 export class AuthController {
+  private jwtGenerator = new JwtTokenGenerator();
+
   constructor(
     private registerUserUseCase: RegisterUserUseCase,
     private loginUserUseCase: LoginUserUseCase,
@@ -25,6 +28,13 @@ export class AuthController {
         nombre,
       });
 
+      // Generar token para el nuevo usuario
+      const token = this.jwtGenerator.generateToken({
+        id: user.id,
+        correo: user.correo,
+        nombre: user.nombre,
+      });
+
       res.status(201).json({
         success: true,
         message: 'Usuario registrado correctamente',
@@ -32,6 +42,7 @@ export class AuthController {
           id: user.id,
           correo: user.correo,
           nombre: user.nombre,
+          token,
         },
       });
     } catch (error) {
@@ -46,7 +57,7 @@ export class AuthController {
     try {
       const { correo, contrasenna } = req.body;
 
-      const user = await this.loginUserUseCase.execute(correo, contrasenna);
+      const { user, token } = await this.loginUserUseCase.execute(correo, contrasenna);
 
       res.status(200).json({
         success: true,
@@ -55,6 +66,7 @@ export class AuthController {
           id: user.id,
           correo: user.correo,
           nombre: user.nombre,
+          token,
         },
       });
     } catch (error) {
