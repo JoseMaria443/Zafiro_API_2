@@ -3,7 +3,7 @@ import type { IUserRepository } from '../Domain/UserRepository.js';
 
 export interface RegisterUserRequest {
   correo: string;
-  password: string;
+  contrasenna: string;
   nombre: string;
 }
 
@@ -17,15 +17,23 @@ export class RegisterUserUseCase {
       throw new Error('El correo ya está registrado');
     }
 
-    const user = new User(
-      Math.floor(Math.random() * 1000000),
+    // Temporal: usar ID 1 para crear el usuario, luego obtenerlo de la BD
+    const tempUser = new User(
+      1,
       request.correo,
-      request.password,
+      request.contrasenna,
       request.nombre
     );
 
-    await this.userRepository.save(user);
+    await this.userRepository.save(tempUser);
 
-    return user;
+    // Obtener el usuario recién creado con su ID real
+    const savedUser = await this.userRepository.findByEmail(request.correo);
+    
+    if (!savedUser) {
+      throw new Error('Error al crear el usuario');
+    }
+
+    return savedUser;
   }
 }

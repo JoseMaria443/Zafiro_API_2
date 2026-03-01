@@ -4,7 +4,7 @@ import type { IUserRepository } from '../Domain/UserRepository.js';
 export interface UpdateUserRequest {
   id: number;
   nombre?: string;
-  password?: string;
+  contrasenna?: string;
   tokenGoogle?: string;
 }
 
@@ -21,7 +21,7 @@ export class UpdateUserUseCase {
     const updatedUser = new User(
       user.id,
       user.correo,
-      request.password || user.password,
+      request.contrasenna || user.password,
       request.nombre || user.nombre,
       request.tokenGoogle || user.tokenGoogle
     );

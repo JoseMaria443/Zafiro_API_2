@@ -17,11 +17,11 @@ export class AuthController {
 
   async register(req: Request, res: Response): Promise<void> {
     try {
-      const { correo, password, nombre } = req.body;
+      const { correo, contrasenna, nombre } = req.body;
 
       const user = await this.registerUserUseCase.execute({
         correo,
-        password,
+        contrasenna,
         nombre,
       });
 
@@ -44,9 +44,9 @@ export class AuthController {
 
   async login(req: Request, res: Response): Promise<void> {
     try {
-      const { correo, password } = req.body;
+      const { correo, contrasenna } = req.body;
 
-      const user = await this.loginUserUseCase.execute(correo, password);
+      const user = await this.loginUserUseCase.execute(correo, contrasenna);
 
       res.status(200).json({
         success: true,
@@ -109,12 +109,12 @@ export class AuthController {
       }
 
       const id = parseInt(idParam);
-      const { nombre, password } = req.body;
+      const { nombre, contrasenna } = req.body;
 
       const updatedUser = await this.updateUserUseCase.execute({
         id,
         nombre,
-        password,
+        contrasenna,
       });
 
       res.status(200).json({
