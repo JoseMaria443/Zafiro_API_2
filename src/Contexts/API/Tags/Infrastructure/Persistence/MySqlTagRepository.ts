@@ -10,12 +10,12 @@ export class MySqlTagRepository implements ITagRepository {
     throw new Error('Implementar con conexión MySQL');
   }
 
-  async findByUserId(idUsuario: number): Promise<Tag[]> {
+  async findByUserId(idUsuario: string): Promise<Tag[]> {
     throw new Error('Implementar con conexión MySQL');
   }
 
   async findByUserIdAndName(
-    idUsuario: number,
+    idUsuario: string,
     nombre: string
   ): Promise<Tag | null> {
     throw new Error('Implementar con conexión MySQL');

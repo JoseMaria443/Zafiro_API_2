@@ -25,7 +25,7 @@ export interface EventReminders {
 
 export class Activity {
   readonly id: string;
-  readonly idUsuario: number;
+  readonly idUsuario: string;
   readonly idEtiqueta?: number;
   readonly kind?: string;
   readonly etag?: string;
@@ -54,7 +54,7 @@ export class Activity {
 
   constructor(
     id: string,
-    idUsuario: number,
+    idUsuario: string,
     summary: string,
     start: EventDateTime,
     end: EventDateTime,
@@ -85,7 +85,7 @@ export class Activity {
       throw new Error('ID de actividad inválido');
     }
 
-    if (idUsuario < 1) {
+    if (!idUsuario || idUsuario.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 

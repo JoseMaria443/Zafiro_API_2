@@ -4,8 +4,8 @@ import type { ITagRepository } from '../Domain/TagRepository.js';
 export class SearchTagsUseCase {
   constructor(private tagRepository: ITagRepository) {}
 
-  async allTagsByUser(idUsuario: number): Promise<Tag[]> {
-    if (idUsuario < 1) {
+  async allTagsByUser(idUsuario: string): Promise<Tag[]> {
+    if (!idUsuario || idUsuario.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 
@@ -21,10 +21,10 @@ export class SearchTagsUseCase {
   }
 
   async tagByUserIdAndName(
-    idUsuario: number,
+    idUsuario: string,
     nombre: string
   ): Promise<Tag | null> {
-    if (idUsuario < 1) {
+    if (!idUsuario || idUsuario.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 

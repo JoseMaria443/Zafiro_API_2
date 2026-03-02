@@ -1,6 +1,6 @@
 export class Repetition {
   readonly id: number;
-  readonly idActividad: number;
+  readonly idActividad: string;
   readonly idFrecuencia: number;
   readonly diasSemana: string;
   readonly fechaInicio: Date;
@@ -8,7 +8,7 @@ export class Repetition {
 
   constructor(
     id: number,
-    idActividad: number,
+    idActividad: string,
     idFrecuencia: number,
     diasSemana: string,
     fechaInicio: Date,
@@ -18,7 +18,7 @@ export class Repetition {
       throw new Error('ID de repetición inválido');
     }
 
-    if (idActividad < 1) {
+    if (!idActividad || idActividad.trim().length === 0) {
       throw new Error('ID de actividad inválido');
     }
 

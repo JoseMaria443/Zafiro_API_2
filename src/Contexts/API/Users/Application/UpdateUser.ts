@@ -3,7 +3,7 @@ import type { IUserRepository } from '../Domain/UserRepository.js';
 import { PasswordHasher } from '../../../Shared/Infrastructure/Security/PasswordHasher.js';
 
 export interface UpdateUserRequest {
-  id: number;
+  id: string;
   nombre?: string;
   contrasenna?: string;
   tokenGoogle?: string;

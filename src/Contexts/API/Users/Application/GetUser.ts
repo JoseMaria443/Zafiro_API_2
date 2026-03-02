@@ -4,8 +4,8 @@ import type { IUserRepository } from '../Domain/UserRepository.js';
 export class GetUserUseCase {
   constructor(private userRepository: IUserRepository) {}
 
-  async execute(id: number): Promise<User> {
-    if (id < 1) {
+  async execute(id: string): Promise<User> {
+    if (!id || id.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 

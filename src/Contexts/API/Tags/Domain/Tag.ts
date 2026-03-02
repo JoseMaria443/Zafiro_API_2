@@ -1,12 +1,12 @@
 export class Tag {
   readonly id: number;
-  readonly idUsuario: number;
+  readonly idUsuario: string;
   readonly nombre: string;
   readonly color: string;
 
   constructor(
     id: number,
-    idUsuario: number,
+    idUsuario: string,
     nombre: string,
     color: string
   ) {
@@ -14,7 +14,7 @@ export class Tag {
       throw new Error('El ID del tag no puede ser menor a 1');
     }
 
-    if (idUsuario < 1) {
+    if (!idUsuario || idUsuario.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 

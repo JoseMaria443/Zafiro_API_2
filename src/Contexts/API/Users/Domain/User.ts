@@ -1,18 +1,18 @@
 export class User {
-  readonly id: number;
+  readonly id: string;
   readonly correo: string;
   readonly password: string;
   readonly nombre: string;
   readonly tokenGoogle?: string;
 
   constructor(
-    id: number,
+    id: string,
     correo: string,
     password: string,
     nombre: string,
     tokenGoogle?: string
   ) {
-    if (id < 1) {
+    if (!id || id.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 

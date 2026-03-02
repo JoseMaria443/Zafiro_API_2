@@ -9,3 +9,7 @@ Creación de la BD  ✓
 Conexión entre API y BD  ✓
 Conexión Entre API y Front ❤
 Instanciación de la API  ✓
+
+Para encenderla de manera ocal solo es 
+
+npm run dev

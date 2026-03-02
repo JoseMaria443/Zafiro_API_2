@@ -89,8 +89,7 @@ export class AuthController {
         return;
       }
 
-      const id = parseInt(idParam);
-      const user = await this.getUserUseCase.execute(id);
+      const user = await this.getUserUseCase.execute(idParam);
 
       res.status(200).json({
         success: true,
@@ -120,7 +119,7 @@ export class AuthController {
         return;
       }
 
-      const id = parseInt(idParam);
+      const id = idParam;
       const { nombre, contrasenna } = req.body;
 
       const updatedUser = await this.updateUserUseCase.execute({
@@ -158,7 +157,7 @@ export class AuthController {
         return;
       }
 
-      const id = parseInt(idParam);
+      const id = idParam;
       await this.deleteUserUseCase.execute(id);
 
       res.status(200).json({

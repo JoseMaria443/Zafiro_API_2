@@ -96,7 +96,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     return this.mapRowToActivity(result.rows[0]);
   }
 
-  async findByUserId(idUsuario: number): Promise<Activity[]> {
+  async findByUserId(idUsuario: string): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT a.*, 
               ad.title, ad.descripcion, ad.ubicacion,
@@ -114,7 +114,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     return result.rows.map(row => this.mapRowToActivity(row));
   }
 
-  async findByUserIdAndDate(idUsuario: number, date: Date): Promise<Activity[]> {
+  async findByUserIdAndDate(idUsuario: string, date: Date): Promise<Activity[]> {
     const targetDate = date.toISOString().split('T')[0];
     
     const result = await this.db.query(

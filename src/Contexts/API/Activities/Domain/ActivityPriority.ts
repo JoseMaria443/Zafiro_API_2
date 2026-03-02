@@ -7,13 +7,13 @@ export enum PriorityLevel {
 
 export class ActivityPriority {
   readonly id: number;
-  readonly idActividad: number;
+  readonly idActividad: string;
   readonly valor: PriorityLevel;
   readonly color: string;
 
   constructor(
     id: number,
-    idActividad: number,
+    idActividad: string,
     valor: PriorityLevel,
     color: string
   ) {
@@ -21,7 +21,7 @@ export class ActivityPriority {
       throw new Error('ID de prioridad inválido');
     }
 
-    if (idActividad < 1) {
+    if (!idActividad || idActividad.trim().length === 0) {
       throw new Error('ID de actividad inválido');
     }
 

@@ -5,9 +5,9 @@ export interface ITagRepository {
 
   findById(id: number): Promise<Tag | null>;
 
-  findByUserId(idUsuario: number): Promise<Tag[]>;
+  findByUserId(idUsuario: string): Promise<Tag[]>;
 
-  findByUserIdAndName(idUsuario: number, nombre: string): Promise<Tag | null>;
+  findByUserIdAndName(idUsuario: string, nombre: string): Promise<Tag | null>;
 
   update(tag: Tag): Promise<void>;
 

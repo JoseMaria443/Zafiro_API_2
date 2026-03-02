@@ -4,8 +4,8 @@ import type { IActivityRepository } from '../Domain/ActivityRepository.js';
 export class SearchUserActivitiesUseCase {
   constructor(private activityRepository: IActivityRepository) {}
 
-  async allActivitiesByUser(idUsuario: number): Promise<Activity[]> {
-    if (idUsuario < 1) {
+  async allActivitiesByUser(idUsuario: string): Promise<Activity[]> {
+    if (!idUsuario || idUsuario.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 
@@ -13,10 +13,10 @@ export class SearchUserActivitiesUseCase {
   }
 
   async activitiesByUserAndDate(
-    idUsuario: number,
+    idUsuario: string,
     date: Date
   ): Promise<Activity[]> {
-    if (idUsuario < 1) {
+    if (!idUsuario || idUsuario.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 

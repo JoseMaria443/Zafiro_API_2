@@ -11,7 +11,7 @@ import type { IActivityRepository } from '../Domain/ActivityRepository.js';
 
 export interface CreateActivityRequest {
   id: string;
-  idUsuario: number;
+  idUsuario: string;
   kind?: string;
   etag?: string;
   htmlLink?: string;
