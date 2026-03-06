@@ -13,3 +13,5 @@ Instanciación de la API  ✓
 Para encenderla de manera ocal solo es 
 
 npm run dev
+
+algo tiene que funcionar
