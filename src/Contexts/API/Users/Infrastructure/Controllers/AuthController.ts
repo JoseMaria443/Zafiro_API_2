@@ -81,7 +81,7 @@ export class AuthController {
     try {
       const idParam = req.params.id;
 
-      if (!idParam || typeof idParam !== 'string') {
+      if (!idParam) {
         res.status(400).json({
           success: false,
           message: 'ID de usuario inválido',
@@ -89,7 +89,16 @@ export class AuthController {
         return;
       }
 
-      const user = await this.getUserUseCase.execute(idParam);
+      const id = parseInt(idParam, 10);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de usuario debe ser un número',
+        });
+        return;
+      }
+
+      const user = await this.getUserUseCase.execute(id);
 
       res.status(200).json({
         success: true,
@@ -111,7 +120,7 @@ export class AuthController {
     try {
       const idParam = req.params.id;
 
-      if (!idParam || typeof idParam !== 'string') {
+      if (!idParam) {
         res.status(400).json({
           success: false,
           message: 'ID de usuario inválido',
@@ -119,7 +128,15 @@ export class AuthController {
         return;
       }
 
-      const id = idParam;
+      const id = parseInt(idParam, 10);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de usuario debe ser un número',
+        });
+        return;
+      }
+
       const { nombre, contrasenna } = req.body;
 
       const updatedUser = await this.updateUserUseCase.execute({
@@ -149,7 +166,7 @@ export class AuthController {
     try {
       const idParam = req.params.id;
 
-      if (!idParam || typeof idParam !== 'string') {
+      if (!idParam) {
         res.status(400).json({
           success: false,
           message: 'ID de usuario inválido',
@@ -157,7 +174,15 @@ export class AuthController {
         return;
       }
 
-      const id = idParam;
+      const id = parseInt(idParam, 10);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de usuario debe ser un número',
+        });
+        return;
+      }
+
       await this.deleteUserUseCase.execute(id);
 
       res.status(200).json({

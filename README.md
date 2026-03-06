@@ -1,17 +1,375 @@
-Esta es la API de conexión del proyecto **Zafiro**, esta sirve como conexión entre el frotn, la base de datos, la API de calendar.
-La API cuenta con el protocolo de JWT para priorizar la seguridad de las cuentas en la base de datos.
-La API ya se encuentra instanciada en AWS, pero se esta trabajando de manera momentanea en local para el testing de los endpoint y proximamente con el frotn como tercer participe.
+# Zafiro API
 
-*Checklist*
+Esta es la API de conexión del proyecto **Zafiro**, que sirve como conexión entre el frontend, la base de datos y la API de Google Calendar.
 
-Creación de la API  ✓
-Creación de la BD  ✓
-Conexión entre API y BD  ✓
-Conexión Entre API y Front ❤
-Instanciación de la API  ✓
+## Características
 
-Para encenderla de manera ocal solo es 
+- ✅ Crear, leer, actualizar y eliminar actividades
+- ✅ Gestión de usuarios con autenticación JWT
+- ✅ Sistema de etiquetas/tags para organizar actividades
+- ✅ Seguridad con JWT para proteger endpoints
+- ✅ Base de datos PostgreSQL en Supabase
+- ✅ Deployment en Render
 
+## Instalación Local
+
+```bash
+# Instalar dependencias
+npm install
+
+# Encender en modo desarrollo
 npm run dev
+```
 
-algo tiene que funcionar
+## Base URL
+
+- **Local**: `http://localhost:3000`
+- **Producción**: `https://zafiro-api-2.onrender.com`
+
+---
+
+## Endpoints
+
+### 1. Health Check
+
+Verifica si la API está funcionando.
+
+**GET** `/health`
+
+**Response (200)**
+```json
+{
+  "status": "API is running"
+}
+```
+
+---
+
+## Autenticación
+
+### 2. Registrar Usuario
+
+Crea una nueva cuenta de usuario.
+
+**POST** `/api/auth/register`
+
+**Request Body**
+```json
+{
+  "nombre": "Juan Pérez",
+  "correo": "juan@example.com",
+  "contrasenna": "MiContraseña123!"
+}
+```
+
+**Response (201)**
+```json
+{
+  "success": true,
+  "message": "Usuario registrado correctamente",
+  "data": {
+    "id": 1,
+    "nombre": "Juan Pérez",
+    "correo": "juan@example.com",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+**Response (400)**
+```json
+{
+  "success": false,
+  "message": "El correo ya está registrado"
+}
+```
+
+---
+
+### 3. Iniciar Sesión
+
+Ingresa con credenciales existentes.
+
+**POST** `/api/auth/login`
+
+**Request Body**
+```json
+{
+  "correo": "juan@example.com",
+  "contrasenna": "MiContraseña123!"
+}
+```
+
+**Response (200)**
+```json
+{
+  "success": true,
+  "message": "Sesión iniciada correctamente",
+  "data": {
+    "id": 1,
+    "nombre": "Juan Pérez",
+    "correo": "juan@example.com",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+**Response (401)**
+```json
+{
+  "success": false,
+  "message": "Credenciales inválidas"
+}
+```
+
+---
+
+## Usuarios (Requieren Autenticación)
+
+Para las siguientes rutas, incluye el token JWT en el header:
+```
+Authorization: Bearer <token>
+```
+
+### 4. Obtener Perfil del Usuario
+
+**GET** `/api/users/:id`
+
+**Headers**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Response (200)**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "nombre": "Juan Pérez",
+    "correo": "juan@example.com"
+  }
+}
+```
+
+---
+
+### 5. Actualizar Perfil del Usuario
+
+**PUT** `/api/users/:id`
+
+**Headers**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Request Body**
+```json
+{
+  "nombre": "Juan Carlos Pérez",
+  "correo": "juan.carlos@example.com"
+}
+```
+
+**Response (200)**
+```json
+{
+  "success": true,
+  "message": "Usuario actualizado correctamente",
+  "data": {
+    "id": 1,
+    "nombre": "Juan Carlos Pérez",
+    "correo": "juan.carlos@example.com"
+  }
+}
+```
+
+---
+
+### 6. Eliminar Usuario
+
+**DELETE** `/api/users/:id`
+
+**Headers**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Response (200)**
+```json
+{
+  "success": true,
+  "message": "Usuario eliminado correctamente"
+}
+```
+
+---
+
+## Actividades
+
+### 7. Crear Actividad
+
+**POST** `/api/calendar/activities`
+
+**Request Body**
+```json
+{
+  "id": "activity_001",
+  "idUsuario": 1,
+  "summary": "Reunión de trabajo",
+  "description": "Reunión con el equipo de desarrollo",
+  "location": "Oficina 301",
+  "start": {
+    "dateTime": "2026-03-10T10:00:00Z",
+    "timeZone": "America/Bogota"
+  },
+  "end": {
+    "dateTime": "2026-03-10T11:00:00Z",
+    "timeZone": "America/Bogota"
+  },
+  "status": "confirmed",
+  "color": "#FF5733"
+}
+```
+
+**Response (201)**
+```json
+{
+  "success": true,
+  "message": "Actividad creada correctamente",
+  "data": {
+    "id": "activity_001",
+    "idUsuario": 1,
+    "summary": "Reunión de trabajo",
+    "description": "Reunión con el equipo de desarrollo"
+  }
+}
+```
+
+---
+
+### 8. Obtener Actividades del Usuario
+
+**GET** `/api/calendar/activities/user/:userId`
+
+**Response (200)**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "activity_001",
+      "idUsuario": 1,
+      "summary": "Reunión de trabajo",
+      "start": "2026-03-10T10:00:00Z",
+      "end": "2026-03-10T11:00:00Z",
+      "status": "confirmed"
+    },
+    {
+      "id": "activity_002",
+      "idUsuario": 1,
+      "summary": "Capacitación",
+      "start": "2026-03-11T14:00:00Z",
+      "end": "2026-03-11T16:00:00Z",
+      "status": "confirmed"
+    }
+  ]
+}
+```
+
+---
+
+### 9. Obtener Actividades por Fecha
+
+**GET** `/api/calendar/activities/user/:userId/date/:date`
+
+**Parámetros**
+- `userId`: ID del usuario (ej: `1`)
+- `date`: Fecha en formato ISO (ej: `2026-03-10`)
+
+**Response (200)**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "activity_001",
+      "idUsuario": 1,
+      "summary": "Reunión de trabajo",
+      "start": "2026-03-10T10:00:00Z",
+      "end": "2026-03-10T11:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## Ejemplos con cURL
+
+### Registrar Usuario
+```bash
+curl -X POST https://zafiro-api-2.onrender.com/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre": "Juan Pérez",
+    "correo": "juan@example.com",
+    "contrasenna": "MiContraseña123!"
+  }'
+```
+
+### Iniciar Sesión
+```bash
+curl -X POST https://zafiro-api-2.onrender.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "correo": "juan@example.com",
+    "contrasenna": "MiContraseña123!"
+  }'
+```
+
+### Obtener Perfil (con token)
+```bash
+curl -X GET https://zafiro-api-2.onrender.com/api/users/1 \
+  -H "Authorization: Bearer tu_token_aqui"
+```
+
+### Crear Actividad
+```bash
+curl -X POST https://zafiro-api-2.onrender.com/api/calendar/activities \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "activity_001",
+    "idUsuario": 1,
+    "summary": "Reunión de trabajo",
+    "start": {
+      "dateTime": "2026-03-10T10:00:00Z"
+    },
+    "end": {
+      "dateTime": "2026-03-10T11:00:00Z"
+    }
+  }'
+```
+
+### Obtener Actividades del Usuario
+```bash
+curl -X GET https://zafiro-api-2.onrender.com/api/calendar/activities/user/1
+```
+
+---
+
+## Notas Importantes
+
+- El token JWT expira en **24 horas**
+- Todos los endpoints requieren el header `Content-Type: application/json`
+- Para endpoints protegidos, incluye: `Authorization: Bearer <token>`
+- Reemplaza `:id` y `:userId` con los valores reales
+- La contraseña debe tener al menos 8 caracteres
+
+## Stack
+
+- **Runtime**: Node.js con TypeScript
+- **Framework**: Express.js
+- **Base de Datos**: PostgreSQL (Supabase)
+- **Autenticación**: JWT
+- **Deployment**: Render
