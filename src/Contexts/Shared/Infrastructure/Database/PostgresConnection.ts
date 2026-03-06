@@ -6,7 +6,7 @@ export class PostgresConnection {
 
   private constructor() {
     this.pool = new Pool({
-      connectionString: process.env.DB_URL || 'postgresql://postgres:postgres@localhost:5432/zafiro',
+      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/zafiro',
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
