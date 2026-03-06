@@ -28,7 +28,7 @@ npm run dev
 
 ---
 
-## Endpoints
+## Endpoints (13 Total)
 
 ### 1. Health Check
 
@@ -203,9 +203,143 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 }
 ```
 
+  });
+  await this.deleteUserUseCase.execute(id);
+
+      res.status(200).json({
+        success: true,
+        message: 'Usuario eliminado correctamente',
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  }
+}
+
 ---
 
-## Actividades
+## Ajustes de Usuario (Requieren Autenticación)
+
+Gestiona la configuración personalizada de cada usuario (horarios, ocupación, etc.).
+
+### 10. Crear Ajustes de Usuario
+
+**POST** `/api/users/:userId/settings`
+
+**Headers**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Request Body**
+```json
+{
+  "idUsuario": 1,
+  "ocupacion": "Desarrollador",
+  "horaInicio": 8,
+  "horaFin": 17
+}
+```
+
+**Response (201)**
+```json
+{
+  "success": true,
+  "message": "Ajustes de usuario creados correctamente",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "idUsuario": 1,
+    "ocupacion": "Desarrollador",
+    "horaInicio": 8,
+    "horaFin": 17
+  }
+}
+```
+
+---
+
+### 11. Obtener Ajustes de Usuario
+
+**GET** `/api/users/:userId/settings`
+
+**Headers**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Response (200)**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "idUsuario": 1,
+    "ocupacion": "Desarrollador",
+    "horaInicio": 8,
+    "horaFin": 17
+  }
+}
+```
+
+---
+
+### 12. Actualizar Ajustes de Usuario
+
+**PUT** `/api/users/:userId/settings`
+
+**Headers**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Request Body**
+```json
+{
+  "idUsuario": 1,
+  "ocupacion": "Senior Developer",
+  "horaInicio": 9,
+  "horaFin": 18
+}
+```
+
+**Response (200)**
+```json
+{
+  "success": true,
+  "message": "Ajustes de usuario actualizados correctamente",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "idUsuario": 1,
+    "ocupacion": "Senior Developer",
+    "horaInicio": 9,
+    "horaFin": 18
+  }
+}
+```
+
+---
+
+### 13. Eliminar Ajustes de Usuario
+
+**DELETE** `/api/users/:userId/settings`
+
+**Headers**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Response (200)**
+```json
+{
+  "success": true,
+  "message": "Ajustes de usuario eliminados correctamente",
+}
+```
+
+---
 
 ### 7. Crear Actividad
 
@@ -354,6 +488,38 @@ curl -X POST https://zafiro-api-2.onrender.com/api/calendar/activities \
 ### Obtener Actividades del Usuario
 ```bash
 curl -X GET https://zafiro-api-2.onrender.com/api/calendar/activities/user/1
+```
+
+### Crear Ajustes de Usuario (con token)
+```bash
+curl -X POST https://zafiro-api-2.onrender.com/api/users/1/settings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer tu_token_aqui" \
+  -d '{
+    "idUsuario": 1,
+    "ocupacion": "Desarrollador",
+    "horaInicio": 8,
+    "horaFin": 17
+  }'
+```
+
+### Obtener Ajustes de Usuario (con token)
+```bash
+curl -X GET https://zafiro-api-2.onrender.com/api/users/1/settings \
+  -H "Authorization: Bearer tu_token_aqui"
+```
+
+### Actualizar Ajustes de Usuario (con token)
+```bash
+curl -X PUT https://zafiro-api-2.onrender.com/api/users/1/settings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer tu_token_aqui" \
+  -d '{
+    "idUsuario": 1,
+    "ocupacion": "Senior Developer",
+    "horaInicio": 9,
+    "horaFin": 18
+  }'
 ```
 
 ---

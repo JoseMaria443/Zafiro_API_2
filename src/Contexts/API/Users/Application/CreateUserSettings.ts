@@ -2,7 +2,7 @@ import { UserSettings } from '../Domain/UserSettings.js';
 import type { IUserSettingsRepository } from '../Domain/UserRepository.js';
 
 export interface CreateUserSettingsRequest {
-  idUsuario: string;
+  idUsuario: number;
   ocupacion?: string;
   horaInicio?: number;
   horaFin?: number;
@@ -12,7 +12,7 @@ export class CreateUserSettingsUseCase {
   constructor(private userSettingsRepository: IUserSettingsRepository) {}
 
   async execute(request: CreateUserSettingsRequest): Promise<UserSettings> {
-    if (!request.idUsuario || request.idUsuario.trim().length === 0) {
+    if (!request.idUsuario || request.idUsuario <= 0) {
       throw new Error('ID de usuario inválido');
     }
 

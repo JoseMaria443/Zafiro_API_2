@@ -9,8 +9,14 @@ import { LoginUserUseCase } from './Contexts/API/Users/Application/LoginUser.js'
 import { GetUserUseCase } from './Contexts/API/Users/Application/GetUser.js';
 import { UpdateUserUseCase } from './Contexts/API/Users/Application/UpdateUser.js';
 import { DeleteUserUseCase } from './Contexts/API/Users/Application/DeleteUser.js';
+import { CreateUserSettingsUseCase } from './Contexts/API/Users/Application/CreateUserSettings.js';
+import { SearchUserSettingsUseCase } from './Contexts/API/Users/Application/SearchUserSettings.js';
+import { UpdateUserSettingsUseCase } from './Contexts/API/Users/Application/UpdateUserSettings.js';
+import { DeleteUserSettingsUseCase } from './Contexts/API/Users/Application/DeleteUserSettings.js';
 import { AuthController } from './Contexts/API/Users/Infrastructure/Controllers/AuthController.js';
+import { UserSettingsController } from './Contexts/API/Users/Infrastructure/Controllers/UserSettingsController.js';
 import { MySqlUserRepository } from './Contexts/API/Users/Infrastructure/Persistence/MySqlUserRepository.js';
+import { MySqlUserSettingsRepository } from './Contexts/API/Users/Infrastructure/Persistence/MySqlUserSettingsRepository.js';
 import { AuthMiddleware } from './Contexts/Shared/Infrastructure/Middleware/AuthMiddleware.js';
 
 export const createApp = (): Express => {
@@ -22,6 +28,7 @@ export const createApp = (): Express => {
   // Repositorios
   const activityRepository = new MySqlActivityRepository();
   const userRepository = new MySqlUserRepository();
+  const userSettingsRepository = new MySqlUserSettingsRepository();
   
   // Casos de uso de actividades
   const createActivityUseCase = new CreateActivityUseCase(activityRepository);
@@ -43,6 +50,18 @@ export const createApp = (): Express => {
     getUserUseCase,
     updateUserUseCase,
     deleteUserUseCase
+  );
+
+  // Casos de uso de ajustes de usuario
+  const createUserSettingsUseCase = new CreateUserSettingsUseCase(userSettingsRepository);
+  const searchUserSettingsUseCase = new SearchUserSettingsUseCase(userSettingsRepository);
+  const updateUserSettingsUseCase = new UpdateUserSettingsUseCase(userSettingsRepository);
+  const deleteUserSettingsUseCase = new DeleteUserSettingsUseCase(userSettingsRepository);
+  const userSettingsController = new UserSettingsController(
+    createUserSettingsUseCase,
+    searchUserSettingsUseCase,
+    updateUserSettingsUseCase,
+    deleteUserSettingsUseCase
   );
 
   app.use(express.json());
@@ -90,6 +109,31 @@ export const createApp = (): Express => {
   app.delete('/api/users/:id', (req: Request, res: Response, next: NextFunction) => {
     authMiddleware.authenticate(req, res, () => {
       void authController.delete(req, res);
+    });
+  });
+
+  // Rutas de ajustes de usuario - Protegidas con JWT
+  app.post('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
+    authMiddleware.authenticate(req, res, () => {
+      void userSettingsController.create(req, res);
+    });
+  });
+
+  app.get('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
+    authMiddleware.authenticate(req, res, () => {
+      void userSettingsController.getByUserId(req, res);
+    });
+  });
+
+  app.put('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
+    authMiddleware.authenticate(req, res, () => {
+      void userSettingsController.update(req, res);
+    });
+  });
+
+  app.delete('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
+    authMiddleware.authenticate(req, res, () => {
+      void userSettingsController.delete(req, res);
     });
   });
 

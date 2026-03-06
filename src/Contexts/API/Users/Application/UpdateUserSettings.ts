@@ -2,7 +2,7 @@ import { UserSettings } from '../Domain/UserSettings.js';
 import type { IUserSettingsRepository } from '../Domain/UserRepository.js';
 
 export interface UpdateUserSettingsRequest {
-  id: string;
+  idUsuario: number;
   ocupacion?: string;
   horaInicio?: number;
   horaFin?: number;
@@ -12,8 +12,8 @@ export class UpdateUserSettingsUseCase {
   constructor(private userSettingsRepository: IUserSettingsRepository) {}
 
   async execute(request: UpdateUserSettingsRequest): Promise<UserSettings> {
-    if (!request.id || request.id.trim().length === 0) {
-      throw new Error('ID de configuración inválido');
+    if (!request.idUsuario || request.idUsuario <= 0) {
+      throw new Error('ID de usuario inválido');
     }
 
     if (request.horaInicio !== undefined && request.horaFin !== undefined) {
@@ -22,12 +22,19 @@ export class UpdateUserSettingsUseCase {
       }
     }
 
+    // Obtener la configuración actual
+    const currentSettings = await this.userSettingsRepository.findByUserId(request.idUsuario);
+    
+    if (!currentSettings) {
+      throw new Error('Configuración de usuario no encontrada');
+    }
+
     const updatedSettings = new UserSettings(
-      request.id,
-      '', // idUsuario no cambia, pero lo necesitamos
-      request.ocupacion,
-      request.horaInicio,
-      request.horaFin
+      currentSettings.id,
+      request.idUsuario,
+      request.ocupacion ?? currentSettings.ocupacion,
+      request.horaInicio ?? currentSettings.horaInicio,
+      request.horaFin ?? currentSettings.horaFin
     );
 
     await this.userSettingsRepository.update(updatedSettings);
