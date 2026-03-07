@@ -37,11 +37,24 @@ export class MySqlUserRepository implements IUserRepository {
   private db = PostgresConnection.getInstance();
 
   async save(user: User): Promise<void> {
-    await this.db.query(
-      `INSERT INTO usuarios (id, clerk_user_id, correo, contrasenna, nombre, token_google) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [user.id, user.clerkUserId, user.correo, user.password, user.nombre, user.tokenGoogle || null]
-    );
+    try {
+      console.log('💾 [DB] Intentando guardar usuario en BD...');
+      console.log(`   → ID: ${user.id}`);
+      console.log(`   → Clerk ID: ${user.clerkUserId}`);
+      console.log(`   → Correo: ${user.correo}`);
+      console.log(`   → Nombre: ${user.nombre}`);
+      
+      await this.db.query(
+        `INSERT INTO usuarios (id, clerk_user_id, correo, contrasenna, nombre, token_google) 
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [user.id, user.clerkUserId, user.correo, user.password, user.nombre, user.tokenGoogle || null]
+      );
+      
+      console.log('✅ [DB] Usuario guardado exitosamente en la base de datos');
+    } catch (error) {
+      console.error('❌ [DB] Error guardando usuario:', error);
+      throw error;
+    }
   }
 
   async findById(id: string): Promise<User | null> {
