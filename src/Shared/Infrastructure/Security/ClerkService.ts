@@ -9,6 +9,16 @@ export interface ClerkUserInfo {
 export class ClerkService {
   private clerkSecretKey = process.env.CLERK_SECRET_KEY || '';
 
+  private extractString(payload: Record<string, unknown>, keys: string[]): string {
+    for (const key of keys) {
+      const value = payload[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+      }
+    }
+    return '';
+  }
+
   /**
    * Valida un token de Clerk y extrae la información del usuario
    * @param token Token JWT de Clerk
@@ -17,8 +27,11 @@ export class ClerkService {
   async validateToken(token: string): Promise<ClerkUserInfo> {
     interface ClerkTokenPayload {
       sub: string;
-      email: string;
-      name: string;
+      email?: string;
+      name?: string;
+      email_address?: string;
+      given_name?: string;
+      family_name?: string;
       [key: string]: any;
     }
     if (!this.clerkSecretKey) {
@@ -40,8 +53,12 @@ export class ClerkService {
 
       // Extraer información del usuario del token
       const clerkUserId = decoded.sub; // ID del usuario de Clerk
-      const correo = decoded.email || '';
-      const nombre = decoded.name || '';
+      const payload = decoded as unknown as Record<string, unknown>;
+      const correo = this.extractString(payload, ['email', 'email_address']);
+      const name = this.extractString(payload, ['name']);
+      const givenName = this.extractString(payload, ['given_name']);
+      const familyName = this.extractString(payload, ['family_name']);
+      const nombre = name || `${givenName} ${familyName}`.trim();
 
       if (!clerkUserId) {
         throw new Error('Token de Clerk inválido: sub no encontrado');

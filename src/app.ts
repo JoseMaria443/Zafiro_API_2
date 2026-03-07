@@ -64,6 +64,10 @@ export const createApp = (): Express => {
     deleteUserSettingsUseCase
   );
 
+  const runProtected = (req: Request, res: Response, action: () => void): void => {
+    void authMiddleware.authenticate(req, res, action);
+  };
+
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
@@ -95,45 +99,74 @@ export const createApp = (): Express => {
 
   // Rutas de usuarios - Protegidas con JWT
   app.get('/api/users/:id', (req: Request, res: Response, next: NextFunction) => {
-    authMiddleware.authenticate(req, res, () => {
+    runProtected(req, res, () => {
       void authController.getProfile(req, res);
     });
   });
 
   app.put('/api/users/:id', (req: Request, res: Response, next: NextFunction) => {
-    authMiddleware.authenticate(req, res, () => {
+    runProtected(req, res, () => {
       void authController.update(req, res);
     });
   });
 
   app.delete('/api/users/:id', (req: Request, res: Response, next: NextFunction) => {
-    authMiddleware.authenticate(req, res, () => {
+    runProtected(req, res, () => {
       void authController.delete(req, res);
     });
   });
 
   // Rutas de ajustes de usuario - Protegidas con JWT
   app.post('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
-    authMiddleware.authenticate(req, res, () => {
+    runProtected(req, res, () => {
       void userSettingsController.create(req, res);
     });
   });
 
   app.get('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
-    authMiddleware.authenticate(req, res, () => {
+    runProtected(req, res, () => {
       void userSettingsController.getByUserId(req, res);
     });
   });
 
   app.put('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
-    authMiddleware.authenticate(req, res, () => {
+    runProtected(req, res, () => {
       void userSettingsController.update(req, res);
     });
   });
 
   app.delete('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
-    authMiddleware.authenticate(req, res, () => {
+    runProtected(req, res, () => {
       void userSettingsController.delete(req, res);
+    });
+  });
+
+  // Integración Google Calendar - protegidas (JWT o Clerk)
+  app.get('/api/integrations/google/connect', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void authController.googleConnect(req, res);
+    });
+  });
+
+  app.get('/api/integrations/google/callback', (req: Request, res: Response) => {
+    void authController.googleCallback(req, res);
+  });
+
+  app.post('/api/integrations/google/sync', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void authController.googleSync(req, res);
+    });
+  });
+
+  app.get('/api/integrations/google/status', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void authController.googleStatus(req, res);
+    });
+  });
+
+  app.delete('/api/integrations/google/disconnect', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void authController.googleDisconnect(req, res);
     });
   });
 
