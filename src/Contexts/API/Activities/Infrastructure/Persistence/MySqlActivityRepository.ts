@@ -1,6 +1,6 @@
 import { Activity } from '../../Domain/Activity.js';
 import type { IActivityRepository } from '../../Domain/ActivityRepository.js';
-import { PostgresConnection } from '../../../../Shared/Infrastructure/Database/PostgresConnection.js';
+import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 import { ActivityDetails } from '../../Domain/ActivityDetails.js';
 import { ActivityPriority } from '../../Domain/ActivityPriority.js';
 import { Repetition } from '../../Domain/Repetition.js';
@@ -136,7 +136,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       [idUsuario]
     );
 
-    return result.rows.map(row => this.mapRowToActivity(row));
+    return result.rows.map((row: any) => this.mapRowToActivity(row));
   }
 
   async findByUserIdAndDate(idUsuario: string, date: Date): Promise<Activity[]> {
@@ -157,7 +157,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       [idUsuario, targetDate]
     );
 
-    return result.rows.map(row => this.mapRowToActivity(row));
+    return result.rows.map((row: any) => this.mapRowToActivity(row));
   }
 
   async findByTagId(idEtiqueta: number): Promise<Activity[]> {
@@ -175,7 +175,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       [idEtiqueta]
     );
 
-    return result.rows.map(row => this.mapRowToActivity(row));
+    return result.rows.map((row: any) => this.mapRowToActivity(row));
   }
 
   async update(activity: Activity): Promise<void> {

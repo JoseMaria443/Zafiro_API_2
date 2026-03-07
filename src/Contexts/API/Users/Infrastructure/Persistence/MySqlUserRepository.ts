@@ -1,6 +1,6 @@
 import { User } from '../../Domain/User.js';
 import type { IUserRepository } from '../../Domain/UserRepository.js';
-import { PostgresConnection } from '../../../../Shared/Infrastructure/Database/PostgresConnection.js';
+import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 import { randomUUID } from 'crypto';
 
 export class MySqlUserRepository implements IUserRepository {

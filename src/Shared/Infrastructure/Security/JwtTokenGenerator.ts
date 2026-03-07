@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import type { JwtPayload } from 'jsonwebtoken';
 
 export interface TokenPayload extends JwtPayload {
-  id: string; // UUID string, not number
+  id: string; // UUID string
   correo: string;
   nombre: string;
   clerkUserId: string;

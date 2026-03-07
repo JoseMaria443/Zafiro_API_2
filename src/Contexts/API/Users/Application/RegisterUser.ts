@@ -1,6 +1,6 @@
 import { User } from '../Domain/User.js';
 import type { IUserRepository } from '../Domain/UserRepository.js';
-import { PasswordHasher } from '../../../Shared/Infrastructure/Security/PasswordHasher.js';
+import { PasswordHasher } from '../../../../Shared/Infrastructure/Security/PasswordHasher.js';
 import { randomUUID } from 'crypto';
 
 export interface RegisterUserRequest {

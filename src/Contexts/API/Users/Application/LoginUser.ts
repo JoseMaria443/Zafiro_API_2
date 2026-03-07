@@ -1,6 +1,6 @@
 import { User } from '../Domain/User.js';
 import type { IUserRepository } from '../Domain/UserRepository.js';
-import { JwtTokenGenerator } from '../../../Shared/Infrastructure/Security/JwtTokenGenerator.js';
+import { JwtTokenGenerator } from '../../../../Shared/Infrastructure/Security/JwtTokenGenerator.js';
 import { ClerkService } from '../../../../Shared/Infrastructure/Security/ClerkService.js';
 import { randomUUID } from 'crypto';
 

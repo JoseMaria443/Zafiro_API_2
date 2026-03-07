@@ -1,33 +1,42 @@
-# Zafiro API - Guia de implementacion (Clerk + Google Calendar)
+# Zafiro API
 
-Este README describe, sin codigo, como implementar en el backend:
+API REST con Node.js + TypeScript + Express para gestión de actividades y usuarios.
 
-- Inicio de sesion con Clerk.
-- Conexion con Google Calendar por usuario.
-- Importacion de actividades existentes desde Google Calendar.
-- Persistencia de esas actividades en la base de datos para que el frontend las lea desde la API.
+## Stack
 
-El frontend ya esta funcional, asi que esta guia se centra en la API y la sincronizacion.
+- **Runtime**: Node.js
+- **Lenguaje**: TypeScript
+- **Framework**: Express.js
+- **Base de datos**: PostgreSQL (Supabase)
+- **Autenticación**: Clerk
 
-## Estado actual del proyecto
+## Instalación
 
-- Stack backend: `Node.js + TypeScript + Express`.
-- Base de datos: `PostgreSQL` (Supabase).
-- Autenticacion actual: JWT propio.
-- Rutas actuales de actividades:
-- `POST /api/calendar/activities`
-- `GET /api/calendar/activities/user/:userId`
-- `GET /api/calendar/activities/user/:userId/date/:date`
-- Rutas actuales de usuario protegidas con middleware JWT:
-- `GET /api/users/:id`
-- `PUT /api/users/:id`
-- `DELETE /api/users/:id`
+```bash
+npm install
+```
 
-## Objetivo de la implementacion
+## Configuración
 
-Cuando un usuario inicie sesion con Clerk y conecte Google Calendar:
+Crear archivo `.env` con:
 
-1. La API debe validar su identidad con Clerk.
+```env
+DATABASE_URL=tu_conexion_postgresql
+CLERK_SECRET_KEY=tu_clave_clerk
+JWT_SECRET=tu_secreto_jwt
+PORT=3000
+```
+
+## Desarrollo
+
+```bash
+npm run dev
+```
+
+## Scripts
+
+- `npm run dev` - Servidor en modo desarrollo
+- `npm start` - Servidor en producción
 2. La API debe obtener eventos de Google Calendar para ese usuario.
 3. La API debe guardar o actualizar esos eventos en la BD local.
 4. El frontend debe seguir consultando las rutas actuales y ver datos sincronizados.

@@ -1,6 +1,6 @@
 import { UserSettings } from '../../Domain/UserSettings.js';
 import type { IUserSettingsRepository } from '../../Domain/UserRepository.js';
-import { PostgresConnection } from '../../../../Shared/Infrastructure/Database/PostgresConnection.js';
+import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 import { randomUUID } from 'crypto';
 
 export class MySqlUserSettingsRepository implements IUserSettingsRepository {

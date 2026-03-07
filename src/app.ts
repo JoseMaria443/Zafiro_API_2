@@ -17,7 +17,7 @@ import { AuthController } from './Contexts/API/Users/Infrastructure/Controllers/
 import { UserSettingsController } from './Contexts/API/Users/Infrastructure/Controllers/UserSettingsController.js';
 import { MySqlUserRepository } from './Contexts/API/Users/Infrastructure/Persistence/MySqlUserRepository.js';
 import { MySqlUserSettingsRepository } from './Contexts/API/Users/Infrastructure/Persistence/MySqlUserSettingsRepository.js';
-import { AuthMiddleware } from './Contexts/Shared/Infrastructure/Middleware/AuthMiddleware.js';
+import { AuthMiddleware } from './Shared/Infrastructure/Middleware/AuthMiddleware.js';
 
 export const createApp = (): Express => {
   const app = express();
