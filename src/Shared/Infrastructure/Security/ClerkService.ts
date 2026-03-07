@@ -35,6 +35,7 @@ export class ClerkService {
       [key: string]: any;
     }
     if (!this.clerkSecretKey) {
+      console.error('❌ [CLERK] CLERK_SECRET_KEY no está configurada');
       throw new Error('CLERK_SECRET_KEY no está configurada en variables de entorno');
     }
 
@@ -45,6 +46,7 @@ export class ClerkService {
     try {
       // Remover "Bearer " del token si existe
       const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+      console.log('      → Verificando token con Clerk...');
 
       // Verificar y decodificar el token de Clerk
       const decoded = (await verifyToken(cleanToken, {
@@ -68,12 +70,15 @@ export class ClerkService {
         throw new Error('Token de Clerk inválido: email no encontrado');
       }
 
+      console.log(`      ✅ Token válido - Clerk User ID: ${clerkUserId}, Email: ${correo}`);
+
       return {
         clerkUserId,
         correo,
         nombre,
       };
     } catch (error) {
+      console.error('      ❌ [CLERK] Error validando token:', error);
       if (error instanceof Error) {
         throw new Error(`Error validando token de Clerk: ${error.message}`);
       }

@@ -25,15 +25,19 @@ export class LoginUserUseCase {
       throw new Error('Token de Clerk requerido');
     }
 
+    console.log('   → Validando token con Clerk...');
     // Validar token de Clerk y obtener información del usuario
     const clerkUserInfo = await this.clerkService.validateToken(clerkToken);
+    console.log(`   → Token válido para: ${clerkUserInfo.correo}`);
 
     // Buscar usuario existente por clerk_user_id
+    console.log(`   → Buscando usuario en BD con Clerk ID: ${clerkUserInfo.clerkUserId}`);
     let user = await this.userRepository.findByClerkUserId(clerkUserInfo.clerkUserId);
     let isNewUser = false;
 
     if (!user) {
       // Usuario no existe, crear uno nuevo
+      console.log('   → Usuario NO encontrado, creando nuevo usuario en BD...');
       isNewUser = true;
       const userId = randomUUID();
       
@@ -49,6 +53,9 @@ export class LoginUserUseCase {
       );
 
       await this.userRepository.save(user);
+      console.log(`   ✅ Usuario creado exitosamente en BD con ID: ${userId}`);
+    } else {
+      console.log(`   ✅ Usuario existente encontrado con ID: ${user.id}`);
     }
 
     // Generar JWT del API (para operaciones internas del API)
