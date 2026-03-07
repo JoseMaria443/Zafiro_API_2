@@ -15,16 +15,41 @@ export class MySqlActivityRepository implements IActivityRepository {
     try {
       await client.query('BEGIN');
 
-      // Insertar actividad principal
+      // Insertar actividad principal con todos los campos de RF-03
       const activityResult = await client.query(
-        `INSERT INTO actividades (id_clerk, id_etiqueta, id_usuario, fecha_creacion) 
-         VALUES ($1, $2, $3, $4) 
+        `INSERT INTO actividades (
+          id_clerk, 
+          id_etiqueta, 
+          id_usuario, 
+          fecha_creacion, 
+          fecha_inicio, 
+          fecha_fin, 
+          hora_inicio, 
+          hora_fin, 
+          tiempo_descanso_min, 
+          tiempo_muerto_min, 
+          source, 
+          status, 
+          google_event_id,
+          frecuencia
+         ) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
          RETURNING id`,
         [
-          activity.id, // Usamos id como id_clerk temporalmente
+          activity.id,
           activity.idEtiqueta || null,
           activity.idUsuario,
-          activity.created
+          activity.created,
+          activity.fechaInicio || null,
+          activity.fechaFin || null,
+          activity.horaInicio || null,
+          activity.horaFin || null,
+          activity.tiempoDescansoMin || null,
+          activity.tiempoMuertoMin || null,
+          activity.source || 'local',
+          activity.status || 'confirmed',
+          activity.googleEventId || null,
+          activity.frecuencia || null
         ]
       );
       const activityId = activityResult.rows[0]?.id;
@@ -212,7 +237,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       end,
       row.fecha_creacion || now.toISOString(),
       row.fecha_creacion || now.toISOString(),
-      'confirmed',
+      row.status || 'confirmed',
       details,
       row.id_etiqueta || undefined,
       'calendar#event',
@@ -231,7 +256,17 @@ export class MySqlActivityRepository implements IActivityRepository {
       undefined,
       undefined,
       priority,
-      repetition
+      repetition,
+      // RF-03 Fields
+      row.fecha_inicio ? new Date(row.fecha_inicio) : undefined,
+      row.fecha_fin ? new Date(row.fecha_fin) : undefined,
+      row.hora_inicio || undefined,
+      row.hora_fin || undefined,
+      row.tiempo_descanso_min || undefined,
+      row.tiempo_muerto_min || undefined,
+      row.source || 'local',
+      row.google_event_id || undefined,
+      row.frecuencia || undefined
     );
   }
 }

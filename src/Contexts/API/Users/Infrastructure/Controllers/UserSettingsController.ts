@@ -14,13 +14,28 @@ export class UserSettingsController {
 
   async create(req: Request, res: Response): Promise<void> {
     try {
-      const { idUsuario, ocupacion, horaInicio, horaFin } = req.body;
+      const { idUsuario, ocupacion } = req.body;
+
+      // Reject if trying to set hora_inicio or hora_fin
+      if (req.body.horaInicio !== undefined || req.body.horaFin !== undefined) {
+        res.status(400).json({
+          success: false,
+          message: 'No se pueden editar hora_inicio y hora_fin. Estos son campos de solo lectura (sistema).',
+        });
+        return;
+      }
+
+      if (!idUsuario || typeof idUsuario !== 'string' || idUsuario.trim().length === 0) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de usuario inválido',
+        });
+        return;
+      }
 
       const userSettings = await this.createUserSettingsUseCase.execute({
-        idUsuario: parseInt(idUsuario, 10),
+        idUsuario,
         ocupacion,
-        horaInicio,
-        horaFin,
       });
 
       res.status(201).json({
@@ -44,9 +59,9 @@ export class UserSettingsController {
 
   async getByUserId(req: Request, res: Response): Promise<void> {
     try {
-      const userIdParam = req.params.userId;
+      const userIdParam = req.params.userId as string;
 
-      if (!userIdParam || typeof userIdParam !== 'string') {
+      if (!userIdParam || userIdParam.trim().length === 0) {
         res.status(400).json({
           success: false,
           message: 'ID de usuario inválido',
@@ -54,16 +69,7 @@ export class UserSettingsController {
         return;
       }
 
-      const idUsuario = parseInt(userIdParam, 10);
-      if (isNaN(idUsuario)) {
-        res.status(400).json({
-          success: false,
-          message: 'ID de usuario debe ser un número',
-        });
-        return;
-      }
-
-      const userSettings = await this.searchUserSettingsUseCase.execute(idUsuario);
+      const userSettings = await this.searchUserSettingsUseCase.execute(userIdParam);
 
       if (!userSettings) {
         res.status(404).json({
@@ -93,9 +99,9 @@ export class UserSettingsController {
 
   async update(req: Request, res: Response): Promise<void> {
     try {
-      const userIdParam = req.params.userId;
+      const userIdParam = req.params.userId as string;
 
-      if (!userIdParam || typeof userIdParam !== 'string') {
+      if (!userIdParam || userIdParam.trim().length === 0) {
         res.status(400).json({
           success: false,
           message: 'ID de usuario inválido',
@@ -103,22 +109,20 @@ export class UserSettingsController {
         return;
       }
 
-      const idUsuario = parseInt(userIdParam, 10);
-      if (isNaN(idUsuario)) {
+      // Reject if trying to edit hora_inicio or hora_fin
+      if (req.body.horaInicio !== undefined || req.body.horaFin !== undefined) {
         res.status(400).json({
           success: false,
-          message: 'ID de usuario debe ser un número',
+          message: 'No se pueden editar hora_inicio y hora_fin. Estos son campos de solo lectura (sistema).',
         });
         return;
       }
 
-      const { ocupacion, horaInicio, horaFin } = req.body;
+      const { ocupacion } = req.body;
 
       const userSettings = await this.updateUserSettingsUseCase.execute({
-        idUsuario,
+        idUsuario: userIdParam,
         ocupacion,
-        horaInicio,
-        horaFin,
       });
 
       res.status(200).json({
@@ -142,9 +146,9 @@ export class UserSettingsController {
 
   async delete(req: Request, res: Response): Promise<void> {
     try {
-      const userIdParam = req.params.userId;
+      const userIdParam = req.params.userId as string;
 
-      if (!userIdParam || typeof userIdParam !== 'string') {
+      if (!userIdParam || userIdParam.trim().length === 0) {
         res.status(400).json({
           success: false,
           message: 'ID de usuario inválido',
@@ -152,16 +156,7 @@ export class UserSettingsController {
         return;
       }
 
-      const idUsuario = parseInt(userIdParam, 10);
-      if (isNaN(idUsuario)) {
-        res.status(400).json({
-          success: false,
-          message: 'ID de usuario debe ser un número',
-        });
-        return;
-      }
-
-      await this.deleteUserSettingsUseCase.execute(idUsuario);
+      await this.deleteUserSettingsUseCase.execute(userIdParam);
 
       res.status(200).json({
         success: true,

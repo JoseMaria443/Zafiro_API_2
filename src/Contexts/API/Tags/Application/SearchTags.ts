@@ -12,8 +12,8 @@ export class SearchTagsUseCase {
     return await this.tagRepository.findByUserId(idUsuario);
   }
 
-  async tagById(id: number): Promise<Tag | null> {
-    if (id < 1) {
+  async tagById(id: string): Promise<Tag | null> {
+    if (!id || id.trim().length === 0) {
       throw new Error('ID de tag inválido');
     }
 

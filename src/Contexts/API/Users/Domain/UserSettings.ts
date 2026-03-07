@@ -1,13 +1,13 @@
 export class UserSettings {
   readonly id: string;
-  readonly idUsuario: number;
+  readonly idUsuario: string; // UUID (formerly number)
   readonly ocupacion: string | undefined;
   readonly horaInicio: number | undefined;
   readonly horaFin: number | undefined;
 
   constructor(
     id: string,
-    idUsuario: number,
+    idUsuario: string,
     ocupacion?: string,
     horaInicio?: number,
     horaFin?: number
@@ -16,7 +16,7 @@ export class UserSettings {
       throw new Error('ID de configuración inválido');
     }
 
-    if (!idUsuario || idUsuario <= 0) {
+    if (!idUsuario || idUsuario.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 

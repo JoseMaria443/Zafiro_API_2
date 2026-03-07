@@ -13,6 +13,7 @@ export class ActivityPostController {
 
   async create(req: Request, res: Response): Promise<void> {
     try {
+      const bodyParams = req.body as Record<string, any>;
       const {
         id,
         idUsuario,
@@ -49,7 +50,33 @@ export class ActivityPostController {
         diasSemana,
         fechaInicio,
         fechaFin,
-      } = req.body;
+        // RF-03 Fields
+        horaInicio,
+        horaFin,
+        tiempoDescansoMin,
+        tiempoMuertoMin,
+        source,
+        googleEventId,
+        frecuencia,
+        prioridadValor,
+      } = bodyParams;
+
+      // Ensure id and idUsuario are strings
+      if (!id || typeof id !== 'string') {
+        res.status(400).json({
+          success: false,
+          message: 'ID de actividad inválido',
+        });
+        return;
+      }
+
+      if (!idUsuario || typeof idUsuario !== 'string') {
+        res.status(400).json({
+          success: false,
+          message: 'ID de usuario inválido',
+        });
+        return;
+      }
 
       const request: CreateActivityRequest = {
         id,
@@ -58,41 +85,50 @@ export class ActivityPostController {
         etag,
         htmlLink,
         summary,
-        creator: creator as EventActor,
-        organizer: organizer as EventActor,
-        start: start as EventDateTime,
-        end: end as EventDateTime,
-        created,
-        updated,
-        iCalUID,
-        sequence,
-        transparency,
-        eventType,
-        recurrence,
-        status,
-        detailsId,
-        description,
-        location,
-        idEtiqueta,
-        recurringEventId,
-        originalStartTime: originalStartTime as EventDateTime,
-        reminders: reminders as EventReminders,
-        etiqueta,
-        priorityId,
-        prioridad,
-        prioridadNivel,
-        color,
-        repetitionId,
-        idFrecuencia,
-        diasSemana,
+        creator: bodyParams.creator as EventActor,
+        organizer: bodyParams.organizer as EventActor,
+        start: bodyParams.start as EventDateTime,
+        end: bodyParams.end as EventDateTime,
+        created: bodyParams.created,
+        updated: bodyParams.updated,
+        iCalUID: bodyParams.iCalUID,
+        sequence: bodyParams.sequence,
+        transparency: bodyParams.transparency,
+        eventType: bodyParams.eventType,
+        recurrence: bodyParams.recurrence,
+        status: bodyParams.status,
+        detailsId: 1,
+        description: bodyParams.description,
+        location: bodyParams.location,
+        idEtiqueta: bodyParams.idEtiqueta,
+        recurringEventId: bodyParams.recurringEventId,
+        originalStartTime: bodyParams.originalStartTime as EventDateTime,
+        reminders: bodyParams.reminders as EventReminders,
+        etiqueta: bodyParams.etiqueta,
+        priorityId: 1,
+        prioridad: bodyParams.prioridad,
+        prioridadNivel: bodyParams.prioridadNivel,
+        color: bodyParams.color,
+        repetitionId: 1,
+        idFrecuencia: bodyParams.idFrecuencia,
+        diasSemana: bodyParams.diasSemana,
+        // RF-03 Fields
+        horaInicio: bodyParams.horaInicio,
+        horaFin: bodyParams.horaFin,
+        tiempoDescansoMin: bodyParams.tiempoDescansoMin,
+        tiempoMuertoMin: bodyParams.tiempoMuertoMin,
+        source: bodyParams.source,
+        googleEventId: bodyParams.googleEventId,
+        frecuencia: bodyParams.frecuencia,
+        prioridadValor: bodyParams.prioridadValor,
       };
 
-      if (fechaInicio) {
-        request.fechaInicio = new Date(fechaInicio);
+      if (bodyParams.fechaInicio) {
+        request.fechaInicio = new Date(bodyParams.fechaInicio);
       }
 
-      if (fechaFin) {
-        request.fechaFin = new Date(fechaFin);
+      if (bodyParams.fechaFin) {
+        request.fechaFin = new Date(bodyParams.fechaFin);
       }
 
       const activity = await this.createActivityUseCase.execute(request);
@@ -149,7 +185,7 @@ export class ActivityPostController {
         return;
       }
 
-      const idUsuario = parseInt(userIdParam);
+      const idUsuario = userIdParam; // Keep as string, not parseInt
 
       const activities = await this.searchActivityUseCase.allActivitiesByUser(idUsuario);
 
@@ -206,7 +242,7 @@ export class ActivityPostController {
         return;
       }
 
-      const idUsuario = parseInt(userIdParam);
+      const idUsuario = userIdParam; // Keep as string, not parseInt
       const date = new Date(dateParam);
 
       const activities = await this.searchActivityUseCase.activitiesByUserAndDate(idUsuario, date);

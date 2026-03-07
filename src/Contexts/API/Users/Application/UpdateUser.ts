@@ -3,7 +3,7 @@ import type { IUserRepository } from '../Domain/UserRepository.js';
 import { PasswordHasher } from '../../../Shared/Infrastructure/Security/PasswordHasher.js';
 
 export interface UpdateUserRequest {
-  id: number;
+  id: string; // UUID (formerly number)
   nombre?: string;
   contrasenna?: string;
   tokenGoogle?: string;
@@ -15,7 +15,7 @@ export class UpdateUserUseCase {
   constructor(private userRepository: IUserRepository) {}
 
   async execute(request: UpdateUserRequest): Promise<User> {
-    if (!request.id || request.id <= 0) {
+    if (!request.id || request.id.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 
@@ -37,6 +37,7 @@ export class UpdateUserUseCase {
 
     const updatedUser = new User(
       user.id,
+      user.clerkUserId,
       user.correo,
       passwordToUse,
       request.nombre || user.nombre,

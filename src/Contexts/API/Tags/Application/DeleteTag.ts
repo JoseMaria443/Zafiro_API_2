@@ -3,8 +3,8 @@ import type { ITagRepository } from '../Domain/TagRepository.js';
 export class DeleteTagUseCase {
   constructor(private tagRepository: ITagRepository) {}
 
-  async execute(id: number): Promise<void> {
-    if (id < 1) {
+  async execute(id: string): Promise<void> {
+    if (!id || id.trim().length === 0) {
       throw new Error('ID de tag inválido');
     }
 

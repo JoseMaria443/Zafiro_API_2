@@ -1,19 +1,21 @@
 import { UserSettings } from '../../Domain/UserSettings.js';
 import type { IUserSettingsRepository } from '../../Domain/UserRepository.js';
 import { PostgresConnection } from '../../../../Shared/Infrastructure/Database/PostgresConnection.js';
+import { randomUUID } from 'crypto';
 
 export class MySqlUserSettingsRepository implements IUserSettingsRepository {
   private db = PostgresConnection.getInstance();
 
   async save(settings: UserSettings): Promise<void> {
+    const id = randomUUID(); // Generate UUID for settings
     await this.db.query(
-      `INSERT INTO ajustes_usuario (id_usuario, ocupacion, hora_inicio, hora_fin) 
-       VALUES ($1, $2, $3, $4)`,
-      [settings.idUsuario, settings.ocupacion || null, settings.horaInicio || null, settings.horaFin || null]
+      `INSERT INTO ajustes_usuario (id, id_usuario, ocupacion, hora_inicio, hora_fin) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, settings.idUsuario, settings.ocupacion || null, settings.horaInicio || null, settings.horaFin || null]
     );
   }
 
-  async findByUserId(idUsuario: number): Promise<UserSettings | null> {
+  async findByUserId(idUsuario: string): Promise<UserSettings | null> {
     const result = await this.db.query(
       'SELECT * FROM ajustes_usuario WHERE id_usuario = $1',
       [idUsuario]
@@ -42,7 +44,7 @@ export class MySqlUserSettingsRepository implements IUserSettingsRepository {
     );
   }
 
-  async delete(idUsuario: number): Promise<void> {
+  async delete(idUsuario: string): Promise<void> {
     await this.db.query('DELETE FROM ajustes_usuario WHERE id_usuario = $1', [idUsuario]);
   }
 }

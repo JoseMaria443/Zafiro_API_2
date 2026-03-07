@@ -1,17 +1,17 @@
 export class Tag {
-  readonly id: number;
+  readonly id: string; // UUID string
   readonly idUsuario: string;
   readonly nombre: string;
   readonly color: string;
 
   constructor(
-    id: number,
+    id: string,
     idUsuario: string,
     nombre: string,
     color: string
   ) {
-    if (id < 1) {
-      throw new Error('El ID del tag no puede ser menor a 1');
+    if (!id || id.trim().length === 0) {
+      throw new Error('El ID del tag no puede estar vacío');
     }
 
     if (!idUsuario || idUsuario.trim().length === 0) {

@@ -4,8 +4,8 @@ import type { IUserSettingsRepository } from '../Domain/UserRepository.js';
 export class SearchUserSettingsUseCase {
   constructor(private userSettingsRepository: IUserSettingsRepository) {}
 
-  async execute(idUsuario: number): Promise<UserSettings | null> {
-    if (!idUsuario || idUsuario <= 0) {
+  async execute(idUsuario: string): Promise<UserSettings | null> {
+    if (!idUsuario || idUsuario.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
 

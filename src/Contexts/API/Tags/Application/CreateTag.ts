@@ -1,9 +1,10 @@
 import { Tag } from '../Domain/Tag.js';
 import type { ITagRepository } from '../Domain/TagRepository.js';
+import { randomUUID } from 'crypto';
 
 export interface CreateTagRequest {
-  id: number;
-  idUsuario: number;
+  id?: string;
+  idUsuario: string;
   nombre: string;
   color: string;
 }
@@ -21,8 +22,10 @@ export class CreateTagUseCase {
       throw new Error(`El tag "${request.nombre}" ya existe para este usuario`);
     }
 
+    const tagId = request.id || randomUUID(); // Generate UUID if not provided
+
     const tag = new Tag(
-      request.id,
+      tagId,
       request.idUsuario,
       request.nombre,
       request.color

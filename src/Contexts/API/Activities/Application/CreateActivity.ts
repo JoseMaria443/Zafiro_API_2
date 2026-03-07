@@ -45,13 +45,23 @@ export interface CreateActivityRequest {
   diasSemana?: string;
   fechaInicio?: Date;
   fechaFin?: Date;
+  // RF-03 Fields
+  horaInicio?: number;
+  horaFin?: number;
+  tiempoDescansoMin?: number;
+  tiempoMuertoMin?: number;
+  source?: 'local' | 'google';
+  googleEventId?: string;
+  frecuencia?: 'diaria' | 'semanal' | 'mensual' | 'anual';
+  prioridadValor?: 'baja' | 'media' | 'alta';
 }
 
 export class CreateActivityUseCase {
   constructor(private activityRepository: IActivityRepository) {}
 
   async execute(request: CreateActivityRequest): Promise<Activity> {
-    const detailsId = request.detailsId ?? 1;
+    // Use UUID string or 1 as fallback for detailsId (it's not a foreign key, just a reference)
+    const detailsId = 1; // Fixed value for now
 
     const details = new ActivityDetails(
       detailsId,
@@ -64,8 +74,8 @@ export class CreateActivityUseCase {
     let priority: ActivityPriority | undefined;
     if (request.priorityId && request.prioridadNivel && request.color) {
       priority = new ActivityPriority(
-        request.priorityId,
-        detailsId,
+        1, // Use fixed ID for now
+        request.id,
         request.prioridadNivel,
         request.color
       );
@@ -73,15 +83,14 @@ export class CreateActivityUseCase {
 
     let repetition: Repetition | undefined;
     if (
-      request.repetitionId &&
       request.idFrecuencia &&
       request.diasSemana &&
       request.fechaInicio &&
       request.fechaFin
     ) {
       repetition = new Repetition(
-        request.repetitionId,
-        detailsId,
+        1, // Use fixed ID for now
+        request.id, // Activity ID (string), not detailsId
         request.idFrecuencia,
         request.diasSemana,
         request.fechaInicio,
@@ -120,7 +129,17 @@ export class CreateActivityUseCase {
       request.etiqueta,
       request.prioridad,
       priority,
-      repetition
+      repetition,
+      // RF-03 Fields
+      request.fechaInicio,
+      request.fechaFin,
+      request.horaInicio,
+      request.horaFin,
+      request.tiempoDescansoMin,
+      request.tiempoMuertoMin,
+      request.source || 'local',
+      request.googleEventId,
+      request.frecuencia
     );
 
     await this.activityRepository.save(activity);

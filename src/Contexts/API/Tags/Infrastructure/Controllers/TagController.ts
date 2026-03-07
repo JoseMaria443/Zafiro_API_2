@@ -54,7 +54,7 @@ export class TagController {
         return;
       }
 
-      const idUsuario = parseInt(userIdParam);
+      const idUsuario = userIdParam; // Keep as string, not parseInt
 
       const tags = await this.searchTagsUseCase.allTagsByUser(idUsuario);
 

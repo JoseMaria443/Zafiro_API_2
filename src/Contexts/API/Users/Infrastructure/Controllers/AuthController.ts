@@ -5,11 +5,8 @@ import { GetUserUseCase } from '../../Application/GetUser.js';
 import { UpdateUserUseCase } from '../../Application/UpdateUser.js';
 import { DeleteUserUseCase } from '../../Application/DeleteUser.js';
 import { User } from '../../Domain/User.js';
-import { JwtTokenGenerator } from '../../../../Shared/Infrastructure/Security/JwtTokenGenerator.js';
 
 export class AuthController {
-  private jwtGenerator = new JwtTokenGenerator();
-
   constructor(
     private registerUserUseCase: RegisterUserUseCase,
     private loginUserUseCase: LoginUserUseCase,
@@ -18,22 +15,59 @@ export class AuthController {
     private deleteUserUseCase: DeleteUserUseCase
   ) {}
 
+  /**
+   * Registro con Clerk (actualmente no se usa, crear usuarios en Clerk primero)
+   * Mantenido para compatibilidad backward
+   */
   async register(req: Request, res: Response): Promise<void> {
     try {
-      const { correo, contrasenna, nombre } = req.body;
+      const { correo, contrasenna, nombre, clerkUserId } = req.body as {
+        correo?: string;
+        contrasenna?: string;
+        nombre?: string;
+        clerkUserId?: string;
+      };
+
+      if (!clerkUserId) {
+        res.status(400).json({
+          success: false,
+          message: 'clerkUserId es requerido para el registro',
+        });
+        return;
+      }
+
+      if (!correo) {
+        res.status(400).json({
+          success: false,
+          message: 'correo es requerido',
+        });
+        return;
+      }
+
+      if (!contrasenna) {
+        res.status(400).json({
+          success: false,
+          message: 'contrasenna es requerido',
+        });
+        return;
+      }
+
+      if (!nombre) {
+        res.status(400).json({
+          success: false,
+          message: 'nombre es requerido',
+        });
+        return;
+      }
 
       const user = await this.registerUserUseCase.execute({
         correo,
         contrasenna,
         nombre,
+        clerkUserId,
       });
 
-      // Generar token para el nuevo usuario
-      const token = this.jwtGenerator.generateToken({
-        id: user.id,
-        correo: user.correo,
-        nombre: user.nombre,
-      });
+      const token = (await this.loginUserUseCase.executeWithEmailPassword(user.correo, contrasenna)).token;
 
       res.status(201).json({
         success: true,
@@ -53,20 +87,34 @@ export class AuthController {
     }
   }
 
+  /**
+   * Login con Clerk token
+   * Valida el token con Clerk y crea/busca el usuario
+   */
   async login(req: Request, res: Response): Promise<void> {
     try {
-      const { correo, contrasenna } = req.body;
+      const { clerkToken } = req.body as { clerkToken?: string };
 
-      const { user, token } = await this.loginUserUseCase.execute(correo, contrasenna);
+      if (!clerkToken || typeof clerkToken !== 'string') {
+        res.status(400).json({
+          success: false,
+          message: 'clerkToken requerido en el body',
+        });
+        return;
+      }
+
+      const { user, token, isNewUser } = await this.loginUserUseCase.execute(clerkToken);
 
       res.status(200).json({
         success: true,
-        message: 'Sesión iniciada correctamente',
+        message: isNewUser ? 'Usuario creado y sesión iniciada' : 'Sesión iniciada correctamente',
         data: {
           id: user.id,
+          clerkUserId: user.clerkUserId,
           correo: user.correo,
           nombre: user.nombre,
           token,
+          isNewUser,
         },
       });
     } catch (error) {
@@ -77,9 +125,12 @@ export class AuthController {
     }
   }
 
+  /**
+   * Obtener perfil del usuario (por UUID)
+   */
   async getProfile(req: Request, res: Response): Promise<void> {
     try {
-      const idParam = req.params.id;
+      const idParam = req.params.id as string;
 
       if (!idParam) {
         res.status(400).json({
@@ -89,21 +140,13 @@ export class AuthController {
         return;
       }
 
-      const id = parseInt(idParam, 10);
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          message: 'ID de usuario debe ser un número',
-        });
-        return;
-      }
-
-      const user = await this.getUserUseCase.execute(id);
+      const user = await this.getUserUseCase.execute(idParam);
 
       res.status(200).json({
         success: true,
         data: {
           id: user.id,
+          clerkUserId: user.clerkUserId,
           correo: user.correo,
           nombre: user.nombre,
         },
@@ -116,9 +159,12 @@ export class AuthController {
     }
   }
 
+  /**
+   * Actualizar usuario (por UUID)
+   */
   async update(req: Request, res: Response): Promise<void> {
     try {
-      const idParam = req.params.id;
+      const idParam = req.params.id as string;
 
       if (!idParam) {
         res.status(400).json({
@@ -128,19 +174,10 @@ export class AuthController {
         return;
       }
 
-      const id = parseInt(idParam, 10);
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          message: 'ID de usuario debe ser un número',
-        });
-        return;
-      }
-
       const { nombre, contrasenna } = req.body;
 
       const updatedUser = await this.updateUserUseCase.execute({
-        id,
+        id: idParam,
         nombre,
         contrasenna,
       });
@@ -150,6 +187,7 @@ export class AuthController {
         message: 'Usuario actualizado correctamente',
         data: {
           id: updatedUser.id,
+          clerkUserId: updatedUser.clerkUserId,
           correo: updatedUser.correo,
           nombre: updatedUser.nombre,
         },
@@ -162,9 +200,12 @@ export class AuthController {
     }
   }
 
+  /**
+   * Eliminar usuario (por UUID)
+   */
   async delete(req: Request, res: Response): Promise<void> {
     try {
-      const idParam = req.params.id;
+      const idParam = req.params.id as string;
 
       if (!idParam) {
         res.status(400).json({
@@ -174,16 +215,7 @@ export class AuthController {
         return;
       }
 
-      const id = parseInt(idParam, 10);
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          message: 'ID de usuario debe ser un número',
-        });
-        return;
-      }
-
-      await this.deleteUserUseCase.execute(id);
+      await this.deleteUserUseCase.execute(idParam);
 
       res.status(200).json({
         success: true,

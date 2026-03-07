@@ -1,19 +1,25 @@
 export class User {
-  readonly id: number;
+  readonly id: string; // UUID (formerly number)
+  readonly clerkUserId: string; // Clerk authentication ID
   readonly correo: string;
   readonly password: string;
   readonly nombre: string;
   readonly tokenGoogle?: string;
 
   constructor(
-    id: number,
+    id: string,
+    clerkUserId: string,
     correo: string,
     password: string,
     nombre: string,
     tokenGoogle?: string
   ) {
-    if (!id || id <= 0) {
+    if (!id || id.trim().length === 0) {
       throw new Error('ID de usuario inválido');
+    }
+
+    if (!clerkUserId || clerkUserId.trim().length === 0) {
+      throw new Error('Clerk User ID inválido');
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,6 +36,7 @@ export class User {
     }
 
     this.id = id;
+    this.clerkUserId = clerkUserId;
     this.correo = correo;
     this.password = password;
     this.nombre = nombre;

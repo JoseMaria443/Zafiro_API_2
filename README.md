@@ -1,541 +1,208 @@
-# Zafiro API
+# Zafiro API - Guia de implementacion (Clerk + Google Calendar)
 
-Esta es la API de conexión del proyecto **Zafiro**, que sirve como conexión entre el frontend, la base de datos y la API de Google Calendar.
+Este README describe, sin codigo, como implementar en el backend:
 
-## Características
+- Inicio de sesion con Clerk.
+- Conexion con Google Calendar por usuario.
+- Importacion de actividades existentes desde Google Calendar.
+- Persistencia de esas actividades en la base de datos para que el frontend las lea desde la API.
 
-- ✅ Crear, leer, actualizar y eliminar actividades
-- ✅ Gestión de usuarios con autenticación JWT
-- ✅ Sistema de etiquetas/tags para organizar actividades
-- ✅ Seguridad con JWT para proteger endpoints
-- ✅ Base de datos PostgreSQL en Supabase
-- ✅ Deployment en Render
+El frontend ya esta funcional, asi que esta guia se centra en la API y la sincronizacion.
 
-## Instalación Local
+## Estado actual del proyecto
+
+- Stack backend: `Node.js + TypeScript + Express`.
+- Base de datos: `PostgreSQL` (Supabase).
+- Autenticacion actual: JWT propio.
+- Rutas actuales de actividades:
+- `POST /api/calendar/activities`
+- `GET /api/calendar/activities/user/:userId`
+- `GET /api/calendar/activities/user/:userId/date/:date`
+- Rutas actuales de usuario protegidas con middleware JWT:
+- `GET /api/users/:id`
+- `PUT /api/users/:id`
+- `DELETE /api/users/:id`
+
+## Objetivo de la implementacion
+
+Cuando un usuario inicie sesion con Clerk y conecte Google Calendar:
+
+1. La API debe validar su identidad con Clerk.
+2. La API debe obtener eventos de Google Calendar para ese usuario.
+3. La API debe guardar o actualizar esos eventos en la BD local.
+4. El frontend debe seguir consultando las rutas actuales y ver datos sincronizados.
+
+## Variables de entorno
+
+Actualmente ya tienes rutas de Clerk en `.env`:
+
+- `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login`
+- `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/register`
+- `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/calendar`
+- `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/calendar`
+
+Esas variables son de frontend. Para completar la implementacion backend, define tambien variables privadas en `.env`:
+
+- `CLERK_SECRET_KEY` (validacion backend con Clerk).
+- `CLERK_PUBLISHABLE_KEY` (opcional para consistencia de entorno).
+- `GOOGLE_CLIENT_ID`.
+- `GOOGLE_CLIENT_SECRET`.
+- `GOOGLE_REDIRECT_URI` (callback OAuth del backend).
+- `GOOGLE_CALENDAR_SCOPES` (ejemplo: lectura de calendario y profile/email).
+- `GOOGLE_SYNC_DEFAULT_DAYS_BACK` (rango inicial de importacion).
+- `GOOGLE_SYNC_DEFAULT_DAYS_FORWARD`.
+- `ENCRYPTION_KEY` (si vas a cifrar tokens en BD).
+
+Notas importantes de seguridad:
+
+- No publiques secretos reales en el repositorio.
+- Rota las credenciales que ya hayan sido expuestas.
+
+## Flujo recomendado de autenticacion y vinculacion
+
+### 1. Login principal con Clerk
+
+- El frontend autentica con Clerk.
+- El frontend envia el token de Clerk en `Authorization: Bearer <token>` a la API.
+- La API valida ese token con Clerk en un middleware nuevo (reemplazando o conviviendo con JWT actual durante migracion).
+
+### 2. Vincular Google Calendar (OAuth)
+
+- Usuario autenticado con Clerk llama una ruta tipo `connect/google/start`.
+- La API redirige a Google OAuth consent screen.
+- Google retorna al callback configurado en `GOOGLE_REDIRECT_URI`.
+- La API guarda `access_token`, `refresh_token`, expiracion y alcance asociado al usuario de Clerk.
+
+### 3. Sincronizacion inicial
+
+- Al completar callback, ejecutar una importacion inicial de eventos (ventana configurable de fechas).
+- Insertar/actualizar eventos en tablas locales.
+- Responder al frontend con estado de sincronizacion para que muestre calendario local de inmediato.
+
+### 4. Sincronizacion recurrente
+
+- Ejecutar sincronizacion bajo demanda (por ejemplo, al abrir calendario) o por job programado.
+- Renovar `access_token` con `refresh_token` cuando expire.
+- Aplicar estrategia idempotente para no duplicar actividades.
+
+## Diseno de datos recomendado
+
+Tu schema actual incluye:
+
+- `usuarios` (ya existe `token_google`, pero se queda corto para refresh/expiracion).
+- `actividades` (`id_clerk`, `id_usuario`, etc.).
+- `actividades_detalles`, `repeticiones`, `prioridad`.
+
+Recomendaciones de modelo:
+
+1. Mantener `usuarios` como entidad local y agregar relacion estable con Clerk:
+- campo sugerido: `clerk_user_id` (texto unico).
+
+2. Crear tabla de credenciales Google por usuario (recomendado):
+- `user_google_connections` con `user_id`, `google_email`, `access_token`, `refresh_token`, `expires_at`, `scope`, `created_at`, `updated_at`.
+- cifrar `access_token` y `refresh_token` en reposo.
+
+3. En `actividades`, persistir identificador externo de Google para upsert:
+- campo sugerido: `google_event_id` (unico por usuario/calendario).
+
+4. Guardar metadata de sincronizacion:
+- `last_synced_at`, `sync_source` (`google` o `local`), `google_calendar_id`.
+
+## Mapeo de Google Event -> modelo Zafiro
+
+Mapeo sugerido para importacion:
+
+- `googleEvent.id` -> `actividades.google_event_id`.
+- `googleEvent.summary` -> `actividades_detalles.title`.
+- `googleEvent.description` -> `actividades_detalles.descripcion`.
+- `googleEvent.location` -> `actividades_detalles.ubicacion`.
+- `googleEvent.created` -> `actividades.fecha_creacion`.
+- `googleEvent.start/end` -> estructura de dominio `Activity.start` y `Activity.end`.
+- `googleEvent.status` -> estado local (por ejemplo `confirmed`, `cancelled`).
+
+Reglas:
+
+- Si ya existe `google_event_id` para el usuario: actualizar.
+- Si no existe: insertar.
+- Si Google marca `cancelled`: decidir si borrado logico o estado cancelado local.
+
+## Endpoints sugeridos para la implementacion
+
+Sin romper el frontend actual, agrega endpoints de integracion:
+
+- `GET /api/integrations/google/connect`
+- `GET /api/integrations/google/callback`
+- `POST /api/integrations/google/sync`
+- `GET /api/integrations/google/status`
+- `DELETE /api/integrations/google/disconnect`
+
+Y mantener los endpoints ya existentes para lectura de actividades:
+
+- `GET /api/calendar/activities/user/:userId`
+- `GET /api/calendar/activities/user/:userId/date/:date`
+
+## Orden de implementacion (sin codigo)
+
+1. Preparar secretos y configuracion OAuth en Google Cloud Console.
+2. Incorporar middleware de autenticacion Clerk en backend.
+3. Mapear `clerk_user_id` <-> usuario local en BD.
+4. Crear flujo `connect/callback` para Google.
+5. Persistir credenciales Google de forma segura.
+6. Implementar importacion inicial de eventos (upsert por `google_event_id`).
+7. Exponer endpoint manual de `sync`.
+8. Ajustar consultas para devolver actividades sincronizadas en rutas actuales.
+9. Agregar logs de auditoria y manejo de errores de OAuth/tokens.
+10. Probar escenarios completos de punta a punta.
+
+## Casos de prueba funcionales
+
+Checklist minimo:
+
+- Usuario inicia sesion con Clerk y API valida token correctamente.
+- Usuario conecta Google y callback guarda credenciales.
+- Usuario con eventos previos en Google ve esos eventos en BD local tras sync.
+- `GET /api/calendar/activities/user/:userId` devuelve eventos importados.
+- Re-sync no duplica eventos existentes.
+- Evento cancelado en Google se refleja correctamente en la API.
+- Token expirado se renueva con `refresh_token`.
+- Usuario desconectado de Google deja de sincronizar.
+
+## Riesgos y decisiones tecnicas
+
+- Migracion JWT -> Clerk: definir si sera inmediata o gradual.
+- Compatibilidad de ids: `id_usuario` (UUID local) vs `clerk_user_id` (string externo).
+- Timezones: normalizar en UTC en BD y convertir en frontend.
+- Privacidad: cifrado de tokens y politicas de rotacion.
+- Concurrencia: evitar sync simultaneas por el mismo usuario.
+
+## Estructura donde encaja en este repositorio
+
+Puntos de integracion sugeridos (sin crear codigo aun):
+
+- Middleware autenticacion: `src/Contexts/Shared/Infrastructure/Middleware/`
+- Casos de uso de sincronizacion: `src/Contexts/API/Activities/Application/`
+- Repositorios de persistencia: `src/Contexts/API/Activities/Infrastructure/Persistence/`
+- Nuevos controladores de integracion: `src/Contexts/API/Users/Infrastructure/Controllers/` o modulo `Integrations`.
+
+## Comandos actuales del proyecto
 
 ```bash
-# Instalar dependencias
 npm install
-
-# Encender en modo desarrollo
 npm run dev
 ```
 
-## Base URL
+Base local esperada:
 
-- **Local**: `http://localhost:3000`
-- **Producción**: `https://zafiro-api-2.onrender.com`
+- `http://localhost:3000`
 
----
+## Resumen
 
-## Endpoints (13 Total)
+Con este plan, mantienes tus rutas actuales para el frontend y agregas una capa de integracion para:
 
-### 1. Health Check
+- autenticar usuarios con Clerk,
+- conectar Google Calendar,
+- importar actividades existentes,
+- y reflejarlas en base de datos para que el frontend las consuma de inmediato.
 
-Verifica si la API está funcionando.
+Esta guia esta lista para ejecutar la implementacion por fases en backend, sin cambios de frontend.
 
-**GET** `/health`
-
-**Response (200)**
-```json
-{
-  "status": "API is running"
-}
-```
-
----
-
-## Autenticación
-
-### 2. Registrar Usuario
-
-Crea una nueva cuenta de usuario.
-
-**POST** `/api/auth/register`
-
-**Request Body**
-```json
-{
-  "nombre": "Juan Pérez",
-  "correo": "juan@example.com",
-  "contrasenna": "MiContraseña123!"
-}
-```
-
-**Response (201)**
-```json
-{
-  "success": true,
-  "message": "Usuario registrado correctamente",
-  "data": {
-    "id": 1,
-    "nombre": "Juan Pérez",
-    "correo": "juan@example.com",
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-**Response (400)**
-```json
-{
-  "success": false,
-  "message": "El correo ya está registrado"
-}
-```
-
----
-
-### 3. Iniciar Sesión
-
-Ingresa con credenciales existentes.
-
-**POST** `/api/auth/login`
-
-**Request Body**
-```json
-{
-  "correo": "juan@example.com",
-  "contrasenna": "MiContraseña123!"
-}
-```
-
-**Response (200)**
-```json
-{
-  "success": true,
-  "message": "Sesión iniciada correctamente",
-  "data": {
-    "id": 1,
-    "nombre": "Juan Pérez",
-    "correo": "juan@example.com",
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-**Response (401)**
-```json
-{
-  "success": false,
-  "message": "Credenciales inválidas"
-}
-```
-
----
-
-## Usuarios (Requieren Autenticación)
-
-Para las siguientes rutas, incluye el token JWT en el header:
-```
-Authorization: Bearer <token>
-```
-
-### 4. Obtener Perfil del Usuario
-
-**GET** `/api/users/:id`
-
-**Headers**
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Response (200)**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "nombre": "Juan Pérez",
-    "correo": "juan@example.com"
-  }
-}
-```
-
----
-
-### 5. Actualizar Perfil del Usuario
-
-**PUT** `/api/users/:id`
-
-**Headers**
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Request Body**
-```json
-{
-  "nombre": "Juan Carlos Pérez",
-  "correo": "juan.carlos@example.com"
-}
-```
-
-**Response (200)**
-```json
-{
-  "success": true,
-  "message": "Usuario actualizado correctamente",
-  "data": {
-    "id": 1,
-    "nombre": "Juan Carlos Pérez",
-    "correo": "juan.carlos@example.com"
-  }
-}
-```
-
----
-
-### 6. Eliminar Usuario
-
-**DELETE** `/api/users/:id`
-
-**Headers**
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Response (200)**
-```json
-{
-  "success": true,
-  "message": "Usuario eliminado correctamente"
-}
-```
-
-  });
-  await this.deleteUserUseCase.execute(id);
-
-      res.status(200).json({
-        success: true,
-        message: 'Usuario eliminado correctamente',
-      });
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Error desconocido',
-      });
-    }
-  }
-}
-
----
-
-## Ajustes de Usuario (Requieren Autenticación)
-
-Gestiona la configuración personalizada de cada usuario (horarios, ocupación, etc.).
-
-### 10. Crear Ajustes de Usuario
-
-**POST** `/api/users/:userId/settings`
-
-**Headers**
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Request Body**
-```json
-{
-  "idUsuario": 1,
-  "ocupacion": "Desarrollador",
-  "horaInicio": 8,
-  "horaFin": 17
-}
-```
-
-**Response (201)**
-```json
-{
-  "success": true,
-  "message": "Ajustes de usuario creados correctamente",
-  "data": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "idUsuario": 1,
-    "ocupacion": "Desarrollador",
-    "horaInicio": 8,
-    "horaFin": 17
-  }
-}
-```
-
----
-
-### 11. Obtener Ajustes de Usuario
-
-**GET** `/api/users/:userId/settings`
-
-**Headers**
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Response (200)**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "idUsuario": 1,
-    "ocupacion": "Desarrollador",
-    "horaInicio": 8,
-    "horaFin": 17
-  }
-}
-```
-
----
-
-### 12. Actualizar Ajustes de Usuario
-
-**PUT** `/api/users/:userId/settings`
-
-**Headers**
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Request Body**
-```json
-{
-  "idUsuario": 1,
-  "ocupacion": "Senior Developer",
-  "horaInicio": 9,
-  "horaFin": 18
-}
-```
-
-**Response (200)**
-```json
-{
-  "success": true,
-  "message": "Ajustes de usuario actualizados correctamente",
-  "data": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "idUsuario": 1,
-    "ocupacion": "Senior Developer",
-    "horaInicio": 9,
-    "horaFin": 18
-  }
-}
-```
-
----
-
-### 13. Eliminar Ajustes de Usuario
-
-**DELETE** `/api/users/:userId/settings`
-
-**Headers**
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Response (200)**
-```json
-{
-  "success": true,
-  "message": "Ajustes de usuario eliminados correctamente",
-}
-```
-
----
-
-### 7. Crear Actividad
-
-**POST** `/api/calendar/activities`
-
-**Request Body**
-```json
-{
-  "id": "activity_001",
-  "idUsuario": 1,
-  "summary": "Reunión de trabajo",
-  "description": "Reunión con el equipo de desarrollo",
-  "location": "Oficina 301",
-  "start": {
-    "dateTime": "2026-03-10T10:00:00Z",
-    "timeZone": "America/Bogota"
-  },
-  "end": {
-    "dateTime": "2026-03-10T11:00:00Z",
-    "timeZone": "America/Bogota"
-  },
-  "status": "confirmed",
-  "color": "#FF5733"
-}
-```
-
-**Response (201)**
-```json
-{
-  "success": true,
-  "message": "Actividad creada correctamente",
-  "data": {
-    "id": "activity_001",
-    "idUsuario": 1,
-    "summary": "Reunión de trabajo",
-    "description": "Reunión con el equipo de desarrollo"
-  }
-}
-```
-
----
-
-### 8. Obtener Actividades del Usuario
-
-**GET** `/api/calendar/activities/user/:userId`
-
-**Response (200)**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "activity_001",
-      "idUsuario": 1,
-      "summary": "Reunión de trabajo",
-      "start": "2026-03-10T10:00:00Z",
-      "end": "2026-03-10T11:00:00Z",
-      "status": "confirmed"
-    },
-    {
-      "id": "activity_002",
-      "idUsuario": 1,
-      "summary": "Capacitación",
-      "start": "2026-03-11T14:00:00Z",
-      "end": "2026-03-11T16:00:00Z",
-      "status": "confirmed"
-    }
-  ]
-}
-```
-
----
-
-### 9. Obtener Actividades por Fecha
-
-**GET** `/api/calendar/activities/user/:userId/date/:date`
-
-**Parámetros**
-- `userId`: ID del usuario (ej: `1`)
-- `date`: Fecha en formato ISO (ej: `2026-03-10`)
-
-**Response (200)**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "activity_001",
-      "idUsuario": 1,
-      "summary": "Reunión de trabajo",
-      "start": "2026-03-10T10:00:00Z",
-      "end": "2026-03-10T11:00:00Z"
-    }
-  ]
-}
-```
-
----
-
-## Ejemplos con cURL
-
-### Registrar Usuario
-```bash
-curl -X POST https://zafiro-api-2.onrender.com/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nombre": "Juan Pérez",
-    "correo": "juan@example.com",
-    "contrasenna": "MiContraseña123!"
-  }'
-```
-
-### Iniciar Sesión
-```bash
-curl -X POST https://zafiro-api-2.onrender.com/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "correo": "juan@example.com",
-    "contrasenna": "MiContraseña123!"
-  }'
-```
-
-### Obtener Perfil (con token)
-```bash
-curl -X GET https://zafiro-api-2.onrender.com/api/users/1 \
-  -H "Authorization: Bearer tu_token_aqui"
-```
-
-### Crear Actividad
-```bash
-curl -X POST https://zafiro-api-2.onrender.com/api/calendar/activities \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "activity_001",
-    "idUsuario": 1,
-    "summary": "Reunión de trabajo",
-    "start": {
-      "dateTime": "2026-03-10T10:00:00Z"
-    },
-    "end": {
-      "dateTime": "2026-03-10T11:00:00Z"
-    }
-  }'
-```
-
-### Obtener Actividades del Usuario
-```bash
-curl -X GET https://zafiro-api-2.onrender.com/api/calendar/activities/user/1
-```
-
-### Crear Ajustes de Usuario (con token)
-```bash
-curl -X POST https://zafiro-api-2.onrender.com/api/users/1/settings \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer tu_token_aqui" \
-  -d '{
-    "idUsuario": 1,
-    "ocupacion": "Desarrollador",
-    "horaInicio": 8,
-    "horaFin": 17
-  }'
-```
-
-### Obtener Ajustes de Usuario (con token)
-```bash
-curl -X GET https://zafiro-api-2.onrender.com/api/users/1/settings \
-  -H "Authorization: Bearer tu_token_aqui"
-```
-
-### Actualizar Ajustes de Usuario (con token)
-```bash
-curl -X PUT https://zafiro-api-2.onrender.com/api/users/1/settings \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer tu_token_aqui" \
-  -d '{
-    "idUsuario": 1,
-    "ocupacion": "Senior Developer",
-    "horaInicio": 9,
-    "horaFin": 18
-  }'
-```
-
----
-
-## Notas Importantes
-
-- El token JWT expira en **24 horas**
-- Todos los endpoints requieren el header `Content-Type: application/json`
-- Para endpoints protegidos, incluye: `Authorization: Bearer <token>`
-- Reemplaza `:id` y `:userId` con los valores reales
-- La contraseña debe tener al menos 8 caracteres
-
-## Stack
-
-- **Runtime**: Node.js con TypeScript
-- **Framework**: Express.js
-- **Base de Datos**: PostgreSQL (Supabase)
-- **Autenticación**: JWT
-- **Deployment**: Render

@@ -6,7 +6,7 @@ export class MySqlTagRepository implements ITagRepository {
     throw new Error('Implementar con conexión MySQL');
   }
 
-  async findById(id: number): Promise<Tag | null> {
+  async findById(id: string): Promise<Tag | null> {
     throw new Error('Implementar con conexión MySQL');
   }
 
@@ -25,7 +25,7 @@ export class MySqlTagRepository implements ITagRepository {
     throw new Error('Implementar con conexión MySQL');
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     throw new Error('Implementar con conexión MySQL');
   }
 }

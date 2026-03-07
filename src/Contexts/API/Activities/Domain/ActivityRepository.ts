@@ -6,9 +6,9 @@ export interface IActivityRepository {
 
   findById(id: string): Promise<Activity | null>;
 
-  findByUserId(idUsuario: number): Promise<Activity[]>;
+  findByUserId(idUsuario: string): Promise<Activity[]>; // UUID (formerly number)
 
-  findByUserIdAndDate(idUsuario: number, date: Date): Promise<Activity[]>;
+  findByUserIdAndDate(idUsuario: string, date: Date): Promise<Activity[]>; // UUID (formerly number)
 
   findByTagId(idEtiqueta: number): Promise<Activity[]>;
 

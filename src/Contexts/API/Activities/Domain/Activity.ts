@@ -51,6 +51,16 @@ export class Activity {
   readonly details: ActivityDetails;
   readonly priority?: ActivityPriority;
   readonly repetition?: Repetition;
+  // RF-03 Fields
+  readonly fechaInicio?: Date; // Start date (format: YYYY-MM-DD)
+  readonly fechaFin?: Date; // End date (format: YYYY-MM-DD)
+  readonly horaInicio?: number; // Start hour (0-23)
+  readonly horaFin?: number; // End hour (0-23)
+  readonly tiempoDescansoMin?: number; // Rest time in minutes
+  readonly tiempoMuertoMin?: number; // Dead time in minutes
+  readonly source?: 'local' | 'google'; // Source of the activity
+  readonly googleEventId?: string; // Google Calendar event ID
+  readonly frecuencia?: 'diaria' | 'semanal' | 'mensual' | 'anual'; // Frequency
 
   constructor(
     id: string,
@@ -79,7 +89,17 @@ export class Activity {
     etiqueta?: Record<string, unknown>,
     prioridad?: Record<string, unknown>,
     priority?: ActivityPriority,
-    repetition?: Repetition
+    repetition?: Repetition,
+    // RF-03 Parameters
+    fechaInicio?: Date,
+    fechaFin?: Date,
+    horaInicio?: number,
+    horaFin?: number,
+    tiempoDescansoMin?: number,
+    tiempoMuertoMin?: number,
+    source?: 'local' | 'google',
+    googleEventId?: string,
+    frecuencia?: 'diaria' | 'semanal' | 'mensual' | 'anual'
   ) {
     if (!id || id.trim().length === 0) {
       throw new Error('ID de actividad inválido');
@@ -113,6 +133,27 @@ export class Activity {
       throw new Error('El estado no puede estar vacío');
     }
 
+    // Validar RF-03 fields
+    if (horaInicio !== undefined && (horaInicio < 0 || horaInicio > 23)) {
+      throw new Error('La hora de inicio debe estar entre 0 y 23');
+    }
+
+    if (horaFin !== undefined && (horaFin < 0 || horaFin > 23)) {
+      throw new Error('La hora de fin debe estar entre 0 y 23');
+    }
+
+    if (horaInicio !== undefined && horaFin !== undefined && horaInicio >= horaFin) {
+      throw new Error('La hora de inicio debe ser anterior a la hora de fin');
+    }
+
+    if (tiempoDescansoMin !== undefined && tiempoDescansoMin < 0) {
+      throw new Error('El tiempo de descanso no puede ser negativo');
+    }
+
+    if (tiempoMuertoMin !== undefined && tiempoMuertoMin < 0) {
+      throw new Error('El tiempo muerto no puede ser negativo');
+    }
+
     this.id = id;
     this.idUsuario = idUsuario;
     this.idEtiqueta = idEtiqueta;
@@ -140,6 +181,16 @@ export class Activity {
     this.details = details;
     this.priority = priority;
     this.repetition = repetition;
+    // RF-03 Fields
+    this.fechaInicio = fechaInicio;
+    this.fechaFin = fechaFin;
+    this.horaInicio = horaInicio;
+    this.horaFin = horaFin;
+    this.tiempoDescansoMin = tiempoDescansoMin;
+    this.tiempoMuertoMin = tiempoMuertoMin;
+    this.source = source;
+    this.googleEventId = googleEventId;
+    this.frecuencia = frecuencia;
   }
 
   isWithinDateRange(date: Date): boolean {
