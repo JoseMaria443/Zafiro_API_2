@@ -38,7 +38,7 @@ export class MySqlUserRepository implements IUserRepository {
 
   async save(user: User): Promise<void> {
     try {
-      console.log('💾 [DB] Intentando guardar usuario en BD...');
+      console.log(' [DB] Intentando guardar usuario en BD...');
       console.log(`   → ID: ${user.id}`);
       console.log(`   → Clerk ID: ${user.clerkUserId}`);
       console.log(`   → Correo: ${user.correo}`);
@@ -50,9 +50,9 @@ export class MySqlUserRepository implements IUserRepository {
         [user.id, user.clerkUserId, user.correo, user.password, user.nombre, user.tokenGoogle || null]
       );
       
-      console.log('✅ [DB] Usuario guardado exitosamente en la base de datos');
+      console.log('[DB] Usuario guardado exitosamente en la base de datos');
     } catch (error) {
-      console.error('❌ [DB] Error guardando usuario:', error);
+      console.error('[DB] Error guardando usuario:', error);
       throw error;
     }
   }

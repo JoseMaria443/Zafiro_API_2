@@ -5,12 +5,12 @@ const app = createApp();
 const PORT = process.env.PORT || 3000;
 
 const server = app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log('\n🎉 ¡FELICIDADES! API ZAFIRO desplegada exitosamente\n');
+  console.log('\n ¡FELICIDADES! API ZAFIRO desplegada exitosamente\n');
   console.log('═══════════════════════════════════════════════════');
-  console.log(`✅ Servidor corriendo en: http://localhost:${PORT}`);
-  console.log(`✅ Servidor red local:    http://0.0.0.0:${PORT}`);
-  console.log(`✅ Entorno:               ${process.env.NODE_ENV || 'development'}`);
-  console.log(`✅ Health check:          http://localhost:${PORT}/health`);
+  console.log(`Servidor corriendo en: http://localhost:${PORT}`);
+  console.log(`Servidor red local:    http://0.0.0.0:${PORT}`);
+  console.log(`Entorno:               ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Health check:          http://localhost:${PORT}/health`);
   console.log('═══════════════════════════════════════════════════');
   console.log('\n📋 Endpoints disponibles:');
   console.log(`   POST /api/auth/login  - Login con Clerk`);
@@ -27,18 +27,18 @@ const server = app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`   ${dbConfigured ? '✅' : '❌'} DATABASE_URL ${dbConfigured ? 'configurada' : 'FALTANTE'}`);
   
   if (!clerkConfigured) {
-    console.log('\n⚠️  WARNING: CLERK_SECRET_KEY no configurada - Login no funcionará');
+    console.log('\n WARNING: CLERK_SECRET_KEY no configurada - Login no funcionará');
   }
   if (!dbConfigured) {
-    console.log('\n⚠️  WARNING: DATABASE_URL no configurada - Base de datos no funcionará');
+    console.log('\n WARNING: DATABASE_URL no configurada - Base de datos no funcionará');
   }
   console.log('\n');
 });
 
 server.on('error', (error: any) => {
   if (error.code === 'EADDRINUSE') {
-    console.error(`❌ ERROR: El puerto ${PORT} ya está en uso.`);
+    console.error(`ERROR: El puerto ${PORT} ya está en uso.`);
   } else {
-    console.error('❌ ERROR al iniciar el servidor:', error);
+    console.error('ERROR al iniciar el servidor:', error);
   }
 });

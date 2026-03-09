@@ -53,9 +53,9 @@ export class LoginUserUseCase {
       );
 
       await this.userRepository.save(user);
-      console.log(`   ✅ Usuario creado exitosamente en BD con ID: ${userId}`);
+      console.log(`    Usuario creado exitosamente en BD con ID: ${userId}`);
     } else {
-      console.log(`   ✅ Usuario existente encontrado con ID: ${user.id}`);
+      console.log(`    Usuario existente encontrado con ID: ${user.id}`);
     }
 
     // Generar JWT del API (para operaciones internas del API)

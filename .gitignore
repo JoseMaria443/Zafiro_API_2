@@ -8,6 +8,7 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+bd/
 
 # Archivos del sistema
 .DS_Store
