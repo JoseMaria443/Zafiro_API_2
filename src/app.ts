@@ -17,6 +17,18 @@ import { AuthController } from './Contexts/API/Users/Infrastructure/Controllers/
 import { UserSettingsController } from './Contexts/API/Users/Infrastructure/Controllers/UserSettingsController.js';
 import { MySqlUserRepository } from './Contexts/API/Users/Infrastructure/Persistence/MySqlUserRepository.js';
 import { MySqlUserSettingsRepository } from './Contexts/API/Users/Infrastructure/Persistence/MySqlUserSettingsRepository.js';
+import { CreateTagUseCase } from './Contexts/API/Tags/Application/CreateTag.js';
+import { SearchTagsUseCase } from './Contexts/API/Tags/Application/SearchTags.js';
+import { UpdateTagUseCase } from './Contexts/API/Tags/Application/UpdateTag.js';
+import { DeleteTagUseCase } from './Contexts/API/Tags/Application/DeleteTag.js';
+import { TagController } from './Contexts/API/Tags/Infrastructure/Controllers/TagController.js';
+import { MySqlTagRepository } from './Contexts/API/Tags/Infrastructure/Persistence/MySqlTagRepository.js';
+import { CreatePriorityUseCase } from './Contexts/API/Priorities/Application/CreatePriority.js';
+import { SearchPrioritiesUseCase } from './Contexts/API/Priorities/Application/SearchPriorities.js';
+import { UpdatePriorityUseCase } from './Contexts/API/Priorities/Application/UpdatePriority.js';
+import { DeletePriorityUseCase } from './Contexts/API/Priorities/Application/DeletePriority.js';
+import { PriorityController } from './Contexts/API/Priorities/Infrastructure/Controllers/PriorityController.js';
+import { MySqlPriorityRepository } from './Contexts/API/Priorities/Infrastructure/Persistence/MySqlPriorityRepository.js';
 import { AuthMiddleware } from './Shared/Infrastructure/Middleware/AuthMiddleware.js';
 
 export const createApp = (): Express => {
@@ -29,6 +41,8 @@ export const createApp = (): Express => {
   const activityRepository = new MySqlActivityRepository();
   const userRepository = new MySqlUserRepository();
   const userSettingsRepository = new MySqlUserSettingsRepository();
+  const tagRepository = new MySqlTagRepository();
+  const priorityRepository = new MySqlPriorityRepository();
   
   // Casos de uso de actividades
   const createActivityUseCase = new CreateActivityUseCase(activityRepository);
@@ -62,6 +76,30 @@ export const createApp = (): Express => {
     searchUserSettingsUseCase,
     updateUserSettingsUseCase,
     deleteUserSettingsUseCase
+
+  // Casos de uso de etiquetas (tags)
+  const createTagUseCase = new CreateTagUseCase(tagRepository);
+  const searchTagsUseCase = new SearchTagsUseCase(tagRepository);
+  const updateTagUseCase = new UpdateTagUseCase(tagRepository);
+  const deleteTagUseCase = new DeleteTagUseCase(tagRepository);
+  const tagController = new TagController(
+    createTagUseCase,
+    searchTagsUseCase,
+    updateTagUseCase,
+    deleteTagUseCase
+
+  // Casos de uso de prioridades
+  const createPriorityUseCase = new CreatePriorityUseCase(priorityRepository);
+  const searchPrioritiesUseCase = new SearchPrioritiesUseCase(priorityRepository);
+  const updatePriorityUseCase = new UpdatePriorityUseCase(priorityRepository);
+  const deletePriorityUseCase = new DeletePriorityUseCase(priorityRepository);
+  const priorityController = new PriorityController(
+    createPriorityUseCase,
+    searchPrioritiesUseCase,
+    updatePriorityUseCase,
+    deletePriorityUseCase
+  );
+  );
   );
 
   const runProtected = (req: Request, res: Response, action: () => void): void => {
@@ -138,6 +176,74 @@ export const createApp = (): Express => {
   app.delete('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
     runProtected(req, res, () => {
       void userSettingsController.delete(req, res);
+    });
+  });
+
+  // Rutas de etiquetas (Tags) - Protegidas con JWT
+  app.post('/api/tags', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void tagController.create(req, res);
+    });
+  });
+
+  app.get('/api/tags/user/:userId', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void tagController.getUserTags(req, res);
+    });
+  });
+
+  app.get('/api/tags/:id', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void tagController.getTagById(req, res);
+    });
+  });
+
+  app.put('/api/tags/:id', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void tagController.update(req, res);
+    });
+  });
+
+  app.delete('/api/tags/:id', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void tagController.delete(req, res);
+    });
+  });
+
+  // Rutas de prioridades - Protegidas con JWT
+  app.post('/api/priorities', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void priorityController.create(req, res);
+    });
+  });
+
+  app.get('/api/priorities/user/:userId', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void priorityController.getUserPriorities(req, res);
+    });
+  });
+
+  app.get('/api/priorities/:id', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void priorityController.getPriorityById(req, res);
+    });
+  });
+
+  app.get('/api/priorities/activity/:activityId', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void priorityController.getPriorityByActivityId(req, res);
+    });
+  });
+
+  app.put('/api/priorities/:id', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void priorityController.update(req, res);
+    });
+  });
+
+  app.delete('/api/priorities/:id', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void priorityController.delete(req, res);
     });
   });
 

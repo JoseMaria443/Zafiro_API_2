@@ -34,52 +34,48 @@ export class MySqlActivityRepository implements IActivityRepository {
       // Insertar actividad principal con todos los campos de RF-03
       const activityResult = await client.query(
         `INSERT INTO actividades (
-          id_clerk, 
-          id_etiqueta, 
+          id,
           id_usuario, 
-          fecha_creacion, 
-          fecha_inicio, 
-          fecha_fin, 
-          hora_inicio, 
-          hora_fin, 
-          start_datetime,
-          end_datetime,
-          start_timezone,
-          end_timezone,
-          tiempo_descanso_min, 
-          tiempo_muerto_min, 
-          source, 
-          status, 
+          id_etiqueta, 
           google_event_id,
           google_calendar_id,
-          event_created_at,
-          event_updated_at,
+          summary,
+          status,
+          start_datetime,
+          end_datetime,
+          start_date,
+          end_date,
+          start_timezone,
+          end_timezone,
+          event_created,
+          event_updated,
+          source,
           last_synced_at,
-          updated_at
+          tiempo_descanso_min, 
+          tiempo_muerto_min
          ) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW()) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) 
          RETURNING id`,
         [
           activity.id,
-          activity.idEtiqueta || null,
           activity.idUsuario,
-          activity.created,
-          activity.fechaInicio || null,
-          activity.fechaFin || null,
-          activity.horaInicio || null,
-          activity.horaFin || null,
-          activity.start.dateTime || null,
-          activity.end.dateTime || null,
-          activity.start.timeZone || null,
-          activity.end.timeZone || null,
-          activity.tiempoDescansoMin || null,
-          activity.tiempoMuertoMin || null,
-          activity.source || 'local',
-          activity.status || 'confirmed',
+          activity.idEtiqueta || null,
           activity.googleEventId || null,
           'primary',
-          activity.created,
-          activity.updated
+          activity.summary || 'Sin título',
+          activity.status || 'confirmed',
+          activity.start.dateTime || null,
+          activity.end.dateTime || null,
+          activity.start.date || null,
+          activity.end.date || null,
+          activity.start.timeZone || 'UTC',
+          activity.end.timeZone || 'UTC',
+          activity.created || new Date().toISOString(),
+          activity.updated || new Date().toISOString(),
+          activity.source || 'local',
+          activity.source === 'google' ? new Date().toISOString() : null,
+          activity.tiempoDescansoMin || 0,
+          activity.tiempoMuertoMin || 0
         ]
       );
       const activityId = activityResult.rows[0]?.id;
@@ -87,15 +83,36 @@ export class MySqlActivityRepository implements IActivityRepository {
       // Insertar detalles de la actividad
       if (activity.details && activityId) {
         await client.query(
-          `INSERT INTO actividades_detalles (id_actividad, title, descripcion, ubicacion, html_link, organizer_email, raw_payload, updated_at) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+          `INSERT INTO actividades_detalles (
+             id_actividad, 
+             description, 
+             location, 
+             html_link, 
+             organizer_email,
+             organizer_display_name,
+             creator_email,
+             creator_display_name,
+             raw_payload
+           ) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           ON CONFLICT (id_actividad) DO UPDATE
+           SET description = EXCLUDED.description,
+               location = EXCLUDED.location,
+               html_link = EXCLUDED.html_link,
+               organizer_email = EXCLUDED.organizer_email,
+               organizer_display_name = EXCLUDED.organizer_display_name,
+               creator_email = EXCLUDED.creator_email,
+               creator_display_name = EXCLUDED.creator_display_name,
+               raw_payload = EXCLUDED.raw_payload`,
           [
             activityId,
-            activity.summary,
             activity.details.description || null,
             activity.details.location || null,
             activity.htmlLink || null,
             activity.organizer?.email || null,
+            activity.organizer?.displayName || null,
+            activity.creator?.email || null,
+            activity.creator?.displayName || null,
             null
           ]
         );
@@ -136,14 +153,14 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findById(id: string): Promise<Activity | null> {
     const result = await this.db.query(
       `SELECT a.*, 
-              ad.title, ad.descripcion, ad.ubicacion,
+              ad.description, ad.location,
               p.valor as prioridad_valor, p.color as prioridad_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
        LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
        LEFT JOIN prioridad p ON a.id = p.id_actividad
        LEFT JOIN repeticiones r ON a.id = r.id_actividad
-       WHERE a.id_clerk = $1`,
+       WHERE a.id = $1`,
       [id]
     );
 
@@ -157,7 +174,7 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findByUserId(idUsuario: string): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT a.*, 
-              ad.title, ad.descripcion, ad.ubicacion,
+              ad.description, ad.location,
               p.valor as prioridad_valor, p.color as prioridad_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
@@ -165,7 +182,7 @@ export class MySqlActivityRepository implements IActivityRepository {
        LEFT JOIN prioridad p ON a.id = p.id_actividad
        LEFT JOIN repeticiones r ON a.id = r.id_actividad
        WHERE a.id_usuario = $1
-       ORDER BY a.id DESC`,
+       ORDER BY a.event_created DESC`,
       [idUsuario]
     );
 
@@ -177,7 +194,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     
     const result = await this.db.query(
       `SELECT a.*, 
-              ad.title, ad.descripcion, ad.ubicacion,
+              ad.description, ad.location,
               p.valor as prioridad_valor, p.color as prioridad_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
@@ -185,8 +202,8 @@ export class MySqlActivityRepository implements IActivityRepository {
        LEFT JOIN prioridad p ON a.id = p.id_actividad
        LEFT JOIN repeticiones r ON a.id = r.id_actividad
        WHERE a.id_usuario = $1 
-         AND DATE(a.fecha_creacion) = $2
-       ORDER BY a.id DESC`,
+         AND (a.start_date = $2 OR DATE(a.start_datetime) = $2)
+       ORDER BY a.start_datetime DESC`,
       [idUsuario, targetDate]
     );
 
@@ -196,7 +213,7 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findByTagId(idEtiqueta: number): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT a.*, 
-              ad.title, ad.descripcion, ad.ubicacion,
+              ad.description, ad.location,
               p.valor as prioridad_valor, p.color as prioridad_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
@@ -204,7 +221,7 @@ export class MySqlActivityRepository implements IActivityRepository {
        LEFT JOIN prioridad p ON a.id = p.id_actividad
        LEFT JOIN repeticiones r ON a.id = r.id_actividad
        WHERE a.id_etiqueta = $1
-       ORDER BY a.id DESC`,
+       ORDER BY a.event_created DESC`,
       [idEtiqueta]
     );
 
@@ -216,7 +233,7 @@ export class MySqlActivityRepository implements IActivityRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.query('DELETE FROM actividades WHERE id_clerk = $1', [id]);
+    await this.db.query('DELETE FROM actividades WHERE id = $1', [id]);
   }
 
   async upsertGoogleEvent(idUsuario: string, event: GoogleCalendarEventInput): Promise<void> {
@@ -236,25 +253,20 @@ export class MySqlActivityRepository implements IActivityRepository {
     const result = await this.db.query(
       `INSERT INTO actividades (
          id_usuario,
-         id_clerk,
          google_event_id,
          google_calendar_id,
+         summary,
          source,
          status,
-         fecha_creacion,
-         fecha_inicio,
-         fecha_fin,
-         hora_inicio,
-         hora_fin,
          start_datetime,
          end_datetime,
+         start_date,
+         end_date,
          start_timezone,
          end_timezone,
-         is_all_day,
-         event_created_at,
-         event_updated_at,
-         last_synced_at,
-         updated_at
+         event_created,
+         event_updated,
+         last_synced_at
        ) VALUES (
          $1,
          $2,
@@ -270,49 +282,35 @@ export class MySqlActivityRepository implements IActivityRepository {
          $11,
          $12,
          $13,
-         $14,
-         $15,
-         $16,
-         $17,
-         NOW(),
          NOW()
        )
        ON CONFLICT (id_usuario, google_calendar_id, google_event_id)
        DO UPDATE SET
-         id_clerk = EXCLUDED.id_clerk,
+         summary = EXCLUDED.summary,
          source = 'google',
          status = EXCLUDED.status,
-         fecha_creacion = EXCLUDED.fecha_creacion,
-         fecha_inicio = EXCLUDED.fecha_inicio,
-         fecha_fin = EXCLUDED.fecha_fin,
-         hora_inicio = EXCLUDED.hora_inicio,
-         hora_fin = EXCLUDED.hora_fin,
          start_datetime = EXCLUDED.start_datetime,
          end_datetime = EXCLUDED.end_datetime,
+         start_date = EXCLUDED.start_date,
+         end_date = EXCLUDED.end_date,
          start_timezone = EXCLUDED.start_timezone,
          end_timezone = EXCLUDED.end_timezone,
-         is_all_day = EXCLUDED.is_all_day,
-         event_created_at = EXCLUDED.event_created_at,
-         event_updated_at = EXCLUDED.event_updated_at,
-         last_synced_at = NOW(),
-         updated_at = NOW()
+         event_created = EXCLUDED.event_created,
+         event_updated = EXCLUDED.event_updated,
+         last_synced_at = NOW()
        RETURNING id`,
       [
         idUsuario,
         event.id,
-        event.id,
         calendarId,
+        summary,
         status,
-        created,
-        start.date,
-        end.date,
-        start.hour,
-        end.hour,
         start.dateTime,
         end.dateTime,
+        start.date,
+        end.date,
         start.timeZone,
         end.timeZone,
-        isAllDay,
         created,
         updated,
       ]
@@ -326,26 +324,21 @@ export class MySqlActivityRepository implements IActivityRepository {
     await this.db.query(
       `INSERT INTO actividades_detalles (
          id_actividad,
-         title,
-         descripcion,
-         ubicacion,
+         description,
+         location,
          html_link,
          organizer_email,
-         raw_payload,
-         updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+         raw_payload
+       ) VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (id_actividad)
        DO UPDATE SET
-         title = EXCLUDED.title,
-         descripcion = EXCLUDED.descripcion,
-         ubicacion = EXCLUDED.ubicacion,
+         description = EXCLUDED.description,
+         location = EXCLUDED.location,
          html_link = EXCLUDED.html_link,
          organizer_email = EXCLUDED.organizer_email,
-         raw_payload = EXCLUDED.raw_payload,
-         updated_at = NOW()`,
+         raw_payload = EXCLUDED.raw_payload`,
       [
         activityId,
-        summary,
         event.description || null,
         event.location || null,
         event.htmlLink || null,
@@ -366,15 +359,13 @@ export class MySqlActivityRepository implements IActivityRepository {
   }
 
   private normalizeEventDate(date?: EventDateTime): {
-    date: Date | null;
-    hour: string | null;
+    date: string | null;
     dateTime: string | null;
     timeZone: string | null;
   } {
     if (!date) {
       return {
         date: null,
-        hour: null,
         dateTime: null,
         timeZone: null,
       };
@@ -382,20 +373,16 @@ export class MySqlActivityRepository implements IActivityRepository {
 
     if (date.dateTime) {
       const parsed = new Date(date.dateTime);
-      const hour = Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(11, 19);
       return {
-        date: Number.isNaN(parsed.getTime()) ? null : parsed,
-        hour,
+        date: null,
         dateTime: Number.isNaN(parsed.getTime()) ? null : parsed.toISOString(),
         timeZone: date.timeZone || 'UTC',
       };
     }
 
     if (date.date) {
-      const parsed = new Date(`${date.date}T00:00:00.000Z`);
       return {
-        date: Number.isNaN(parsed.getTime()) ? null : parsed,
-        hour: null,
+        date: date.date,
         dateTime: null,
         timeZone: date.timeZone || 'UTC',
       };
@@ -403,7 +390,6 @@ export class MySqlActivityRepository implements IActivityRepository {
 
     return {
       date: null,
-      hour: null,
       dateTime: null,
       timeZone: null,
     };
@@ -412,10 +398,10 @@ export class MySqlActivityRepository implements IActivityRepository {
   private mapRowToActivity(row: any): Activity {
     const details = new ActivityDetails(
       row.id || 0,
-      row.id_clerk || row.id?.toString() || '',
-      row.title || 'Sin título',
-      row.descripcion || undefined,
-      row.ubicacion || undefined
+      row.id?.toString() || '',
+      row.summary || 'Sin título',
+      row.description || undefined,
+      row.location || undefined
     );
 
     let priority: ActivityPriority | undefined;
@@ -440,26 +426,28 @@ export class MySqlActivityRepository implements IActivityRepository {
       );
     }
 
-    // Crear fechas de inicio y fin básicas
+    // Crear fechas de inicio y fin
     const now = new Date();
     const start: EventDateTime = {
-      dateTime: row.start_datetime || row.fecha_creacion || now.toISOString(),
+      dateTime: row.start_datetime || undefined,
+      date: row.start_date || undefined,
       timeZone: row.start_timezone || 'UTC'
     };
 
     const end: EventDateTime = {
-      dateTime: row.end_datetime || row.fecha_creacion || now.toISOString(),
+      dateTime: row.end_datetime || undefined,
+      date: row.end_date || undefined,
       timeZone: row.end_timezone || 'UTC'
     };
 
     return new Activity(
-      row.id_clerk || row.id?.toString() || '',
+      row.id?.toString() || '',
       row.id_usuario,
-      row.title || 'Sin título',
+      row.summary || 'Sin título',
       start,
       end,
-      row.fecha_creacion || now.toISOString(),
-      row.fecha_creacion || now.toISOString(),
+      row.event_created || now.toISOString(),
+      row.event_updated || now.toISOString(),
       row.status || 'confirmed',
       details,
       row.id_etiqueta || undefined,
@@ -481,10 +469,10 @@ export class MySqlActivityRepository implements IActivityRepository {
       priority,
       repetition,
       // RF-03 Fields
-      row.fecha_inicio ? new Date(row.fecha_inicio) : undefined,
-      row.fecha_fin ? new Date(row.fecha_fin) : undefined,
-      row.hora_inicio || undefined,
-      row.hora_fin || undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
       row.tiempo_descanso_min || undefined,
       row.tiempo_muerto_min || undefined,
       row.source || 'local',

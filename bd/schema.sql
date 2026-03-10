@@ -48,7 +48,7 @@ CREATE TABLE etiquetas (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_usuario UUID NOT NULL,
     nombre VARCHAR(50) NOT NULL,
-    transparencia VARCHAR(15)
+    transparencia VARCHAR(15),
     color VARCHAR(7),
     CONSTRAINT fk_etiquetas_usuario
         FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
@@ -57,29 +57,47 @@ CREATE TABLE etiquetas (
 -- Tabla principal de actividades (locales y sincronizadas desde Google).
 CREATE TABLE actividades (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    -- ID legado usado por la API actual (no confundir con clerk_user_id).
-    id_clerk VARCHAR(255),
-    id_etiqueta INTEGER,
     id_usuario UUID NOT NULL,
-    -- ID real del evento en Google Calendar para evitar duplicados en sync.
+    id_etiqueta INTEGER,
+    
+    -- ID del evento en Google Calendar (para sincronizacion)
     google_event_id VARCHAR(255),
-    google_calendar_id VARCHAR(255) NOT NULL DEFAULT 'primary',
-
-    -- Campos funcionales RF-03 (son objetos pero recibiran diferetes tipos de datos de entrada y salida).
-    start TIMESTAMPTZ 
-    end TIMESTAMPTZ  -- Estas incluyen el datatime, date y timezone (estos son su objetos)
-
-    -- estsos son los elementos de los objetos de start y ends
-    datatime TIMESTAMPTZ,
-    date TIMESTAMPTZ, -- viene asi directo del calendat
-    tiemzone TIMESTAMPTZ,
-
-    -- RF-03: tiempo de descanso y tiempo muerto (traslados, etc.).
-    tiempo_descanso_min INTEGER,
-    tiempo_muerto_min INTEGER,
-
-    -- Campo legado usado por consultas existentes (compatibilidad).
-    fecha_creacion VARCHAR(255),
+    google_calendar_id VARCHAR(255) DEFAULT 'primary',
+    
+    -- Campos principales del evento (compatibles con Google Calendar)
+    summary VARCHAR(500) NOT NULL,
+    status VARCHAR(20) DEFAULT 'confirmed',
+    
+    -- Fechas de inicio y fin (Google Calendar format)
+    -- Para eventos con hora especifica usa start_datetime
+    start_datetime TIMESTAMPTZ,
+    end_datetime TIMESTAMPTZ,
+    start_timezone VARCHAR(100),
+    end_timezone VARCHAR(100),
+    
+    -- Para eventos de todo el dia usa start_date
+    start_date DATE,
+    end_date DATE,
+    
+    -- Metadatos del evento
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    event_created TIMESTAMPTZ,
+    event_updated TIMESTAMPTZ,
+    
+    -- Campos adicionales de Google Calendar
+    transparency VARCHAR(20),
+    event_type VARCHAR(50),
+    recurring_event_id VARCHAR(255),
+    
+    -- RF-03: tiempo de descanso y tiempo muerto (traslados, etc.)
+    tiempo_descanso_min INTEGER DEFAULT 0,
+    tiempo_muerto_min INTEGER DEFAULT 0,
+    
+    -- Source y sync
+    source VARCHAR(20) DEFAULT 'local',
+    last_synced_at TIMESTAMPTZ,
+    
     CONSTRAINT fk_actividades_usuario
         FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
     CONSTRAINT fk_actividades_etiqueta
@@ -88,23 +106,54 @@ CREATE TABLE actividades (
         UNIQUE (id_usuario, google_calendar_id, google_event_id)
 );
 
--- Aceleran consultas por usuario, fecha y sincronizacion.
+-- Indices para acelerar consultas
 CREATE INDEX idx_actividades_usuario ON actividades(id_usuario);
-CREATE INDEX idx_actividades_usuario_fecha ON actividades(id_usuario, fecha_creacion);
 CREATE INDEX idx_actividades_usuario_start ON actividades(id_usuario, start_datetime);
+CREATE INDEX idx_actividades_usuario_date ON actividades(id_usuario, start_date);
 CREATE INDEX idx_actividades_google_event ON actividades(id_usuario, google_event_id);
+CREATE INDEX idx_actividades_created ON actividades(created_at);
+CREATE INDEX idx_actividades_status ON actividades(status);
+
+-- Prioridad asignada a cada actividad.
+CREATE TABLE prioridad (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_actividad UUID NOT NULL,
+    valor priority_value_enum NOT NULL,
+    color VARCHAR(7),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_prioridad_actividad
+        FOREIGN KEY (id_actividad) REFERENCES actividades(id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX uq_prioridad_id_actividad
+    ON prioridad(id_actividad);
 
 -- Detalles descriptivos de cada actividad.
 CREATE TABLE actividades_detalles (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    id_actividad UUID NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    sumamry TEXT,
-    -- Payload original opcional para auditoria/depuracion.
+    description TEXT,
+    location VARCHAR(500),
+    html_link TEXT,
+    ical_uid VARCHAR(255),
+    organizer_email VARCHAR(255),
+    organizer_display_name VARCHAR(255),
+    creator_email VARCHAR(255),
+    creator_display_name VARCHAR(255),
+    -- Recurrence rules (RFC5545)
+    recurrence TEXT[],
+    -- Reminders
+    reminders_use_default BOOLEAN DEFAULT true,
+    reminders_overrides JSONB,
+    -- Payload original opcional para auditoria/depuracion
     raw_payload JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT fk_actividades_detalles_actividad
+        FOREIGN KEY (id_actividad) REFERENCES actividades(id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX uq_actividades_detalles_id_actividad
+    ON actividades_detalles(id_actividad    CONSTRAINT fk_actividades_detalles_actividad
         FOREIGN KEY (id_actividad) REFERENCES actividades(id) ON DELETE CASCADE
 );
 
@@ -130,9 +179,6 @@ CREATE TABLE repeticiones (
     CONSTRAINT fk_repeticiones_actividad
         FOREIGN KEY (id_actividad) REFERENCES actividades(id) ON DELETE CASCADE
 );
-
-CREATE UNIQUE INDEX uq_prioridad_id_actividad
-    ON prioridad(id_actividad);
 
 -- Preferencias y configuracion del usuario (segundo formulario post-login).
 -- FLUJO: Despues del login Clerk, el usuario completa este formulario UNA SOLA VEZ.
