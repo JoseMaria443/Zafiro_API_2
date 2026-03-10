@@ -92,9 +92,12 @@ export class MySqlActivityRepository implements IActivityRepository {
              organizer_display_name,
              creator_email,
              creator_display_name,
+             recurrence,
+             reminders_use_default,
+             reminders_overrides,
              raw_payload
            ) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
            ON CONFLICT (id_actividad) DO UPDATE
            SET description = EXCLUDED.description,
                location = EXCLUDED.location,
@@ -103,6 +106,9 @@ export class MySqlActivityRepository implements IActivityRepository {
                organizer_display_name = EXCLUDED.organizer_display_name,
                creator_email = EXCLUDED.creator_email,
                creator_display_name = EXCLUDED.creator_display_name,
+               recurrence = EXCLUDED.recurrence,
+               reminders_use_default = EXCLUDED.reminders_use_default,
+               reminders_overrides = EXCLUDED.reminders_overrides,
                raw_payload = EXCLUDED.raw_payload`,
           [
             activityId,
@@ -113,6 +119,9 @@ export class MySqlActivityRepository implements IActivityRepository {
             activity.organizer?.displayName || null,
             activity.creator?.email || null,
             activity.creator?.displayName || null,
+            activity.recurrence || null,
+            activity.reminders?.useDefault ?? true,
+            activity.reminders?.overrides ? JSON.stringify(activity.reminders.overrides) : null,
             null
           ]
         );
@@ -153,7 +162,7 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findById(id: string): Promise<Activity | null> {
     const result = await this.db.query(
       `SELECT a.*, 
-              ad.description, ad.location,
+              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
@@ -174,7 +183,7 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findByUserId(idUsuario: string): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT a.*, 
-              ad.description, ad.location,
+              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
@@ -194,7 +203,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     
     const result = await this.db.query(
       `SELECT a.*, 
-              ad.description, ad.location,
+              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
@@ -213,7 +222,7 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findByTagId(idEtiqueta: number): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT a.*, 
-              ad.description, ad.location,
+              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
@@ -397,7 +406,7 @@ export class MySqlActivityRepository implements IActivityRepository {
 
   private mapRowToActivity(row: any): Activity {
     const details = new ActivityDetails(
-      row.id || 0,
+      Number(row.detalle_id || 1),
       row.id?.toString() || '',
       row.summary || 'Sin título',
       row.description || undefined,
@@ -430,14 +439,21 @@ export class MySqlActivityRepository implements IActivityRepository {
     const now = new Date();
     const start: EventDateTime = {
       dateTime: row.start_datetime || undefined,
-      date: row.start_date || undefined,
+      date: row.start_date ? new Date(row.start_date).toISOString().split('T')[0] : undefined,
       timeZone: row.start_timezone || 'UTC'
     };
 
     const end: EventDateTime = {
       dateTime: row.end_datetime || undefined,
-      date: row.end_date || undefined,
+      date: row.end_date ? new Date(row.end_date).toISOString().split('T')[0] : undefined,
       timeZone: row.end_timezone || 'UTC'
+    };
+
+    const reminders = {
+      useDefault: row.reminders_use_default ?? true,
+      overrides: Array.isArray(row.reminders_overrides)
+        ? row.reminders_overrides
+        : undefined,
     };
 
     return new Activity(
@@ -453,17 +469,17 @@ export class MySqlActivityRepository implements IActivityRepository {
       row.id_etiqueta || undefined,
       'calendar#event',
       undefined,
+      row.html_link || undefined,
       undefined,
       undefined,
       undefined,
       undefined,
+      row.transparency || undefined,
+      row.event_type || undefined,
+      row.recurrence || undefined,
+      row.recurring_event_id || undefined,
       undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
+      reminders,
       undefined,
       undefined,
       priority,

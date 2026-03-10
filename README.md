@@ -348,12 +348,11 @@ Eliminar usuario.
 ### 📅 Actividades/Eventos
 
 #### `POST /api/activities` 🔒
-Crear actividad.
+Crear actividad. Acepta el mismo payload que la Google Calendar API. El `idUsuario` es **opcional** — si no se envía, se resuelve automáticamente desde el JWT del header.
 
-**Body:**
+**Body (formato Google Calendar):**
 ```json
 {
-  "idUsuario": "uuid-usuario",
   "summary": "Reunión de equipo",
   "start": {
     "dateTime": "2026-03-15T10:00:00-06:00",
@@ -363,11 +362,36 @@ Crear actividad.
     "dateTime": "2026-03-15T11:00:00-06:00",
     "timeZone": "America/Mexico_City"
   },
-  "description": "Discutir el proyecto Q1",
-  "location": "Sala de juntas 3",
+  "recurrence": ["RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR"],
+  "reminders": {
+    "useDefault": false,
+    "overrides": [{ "method": "popup", "minutes": 10 }]
+  },
+  "transparency": "opaque",
+  "prioridad": "Alta",
   "idEtiqueta": 1,
   "tiempoDescansoMin": 10,
   "tiempoMuertoMin": 5
+}
+```
+
+> **Campos requeridos:** `summary`, `start`, `end`  
+> **Prioridad:** acepta `Alta`, `Media`, `Baja` (valores del Frontend) — se normaliza automáticamente  
+> **idUsuario:** opcional, se resuelve desde el JWT si no se envía  
+> **recurrence:** array de strings RRULE (ej. `["RRULE:FREQ=DAILY;COUNT=10"]`)  
+> **reminders:** objeto con `useDefault` (bool) y `overrides` (array de `{method, minutes}`)
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "message": "Actividad creada exitosamente",
+  "data": {
+    "id": "uuid-actividad",
+    "summary": "Reunión de equipo",
+    "start": { "dateTime": "2026-03-15T10:00:00-06:00", "timeZone": "America/Mexico_City" },
+    "end": { "dateTime": "2026-03-15T11:00:00-06:00", "timeZone": "America/Mexico_City" }
+  }
 }
 ```
 
@@ -392,7 +416,15 @@ Obtener actividades por etiqueta.
 Actualizar actividad.
 
 #### `DELETE /api/activities/:id` 🔒
-Eliminar actividad.
+Eliminar actividad por ID (UUID o Google Event ID).
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Actividad eliminada exitosamente"
+}
+```
 
 #### `POST /api/sync/google` 🔒
 Sincronizar eventos de Google Calendar.
@@ -539,7 +571,9 @@ app.use('/api/priorities', AuthMiddleware, priorityRoutes);
 
 ## 📖 Guía de Uso
 
-### Ejemplo Completo: Crear Actividad con Etiqueta y Prioridad
+### Ejemplo Completo: Formato Real del Frontend
+
+El Frontend envía este payload al crear actividades (formato Google Calendar):
 
 ```bash
 # 1. Login (obtener token)
@@ -550,7 +584,52 @@ curl -X POST http://localhost:3000/api/auth/login \
 # Guardar el token recibido
 TOKEN="jwt_token_from_response"
 
-# 2. Crear etiqueta
+# 2. Crear actividad (sin idUsuario — se resuelve desde el JWT)
+curl -X POST http://localhost:3000/api/activities \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "summary": "Estudiar matemáticas",
+    "start": {
+      "dateTime": "2026-03-15T10:00:00",
+      "timeZone": "America/Mexico_City"
+    },
+    "end": {
+      "dateTime": "2026-03-15T11:00:00",
+      "timeZone": "America/Mexico_City"
+    },
+    "recurrence": ["RRULE:FREQ=DAILY;UNTIL=20260415T000000Z"],
+    "reminders": {
+      "useDefault": false,
+      "overrides": [{ "method": "popup", "minutes": 10 }]
+    },
+    "transparency": "opaque",
+    "prioridad": "Alta"
+  }'
+
+# Guardar ID de actividad retornado
+
+# 3. Obtener actividad por ID
+curl -X GET http://localhost:3000/api/activities/uuid-actividad \
+  -H "Authorization: Bearer $TOKEN"
+
+# 4. Obtener todas las actividades del usuario
+curl -X GET http://localhost:3000/api/activities/user/uuid-usuario \
+  -H "Authorization: Bearer $TOKEN"
+
+# 5. Obtener actividades por fecha
+curl -X GET http://localhost:3000/api/activities/user/uuid-usuario/date/2026-03-15 \
+  -H "Authorization: Bearer $TOKEN"
+
+# 6. Eliminar actividad
+curl -X DELETE http://localhost:3000/api/activities/uuid-actividad \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Ejemplo con Etiqueta y Prioridad Explícitas
+
+```bash
+# Crear etiqueta
 curl -X POST http://localhost:3000/api/tags \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -560,15 +639,12 @@ curl -X POST http://localhost:3000/api/tags \
     "color": "#FF5733"
   }'
 
-# Guardar ID de etiqueta: "id": "1"
-
-# 3. Crear actividad con etiqueta
+# Crear actividad con etiqueta y tiempos RF-03
 curl -X POST http://localhost:3000/api/activities \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "idUsuario": "uuid-usuario",
-    "summary": "Presentación importante",
+    "summary": "Presentación Q1",
     "start": {
       "dateTime": "2026-03-15T10:00:00-06:00",
       "timeZone": "America/Mexico_City"
@@ -577,25 +653,11 @@ curl -X POST http://localhost:3000/api/activities \
       "dateTime": "2026-03-15T11:00:00-06:00",
       "timeZone": "America/Mexico_City"
     },
+    "prioridad": "Media",
     "idEtiqueta": 1,
-    "tiempoDescansoMin": 15
+    "tiempoDescansoMin": 15,
+    "tiempoMuertoMin": 5
   }'
-
-# Guardar ID de actividad
-
-# 4. Asignar prioridad alta
-curl -X POST http://localhost:3000/api/priorities \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "idActividad": "uuid-actividad",
-    "valor": "alta",
-    "color": "#FF0000"
-  }'
-
-# 5. Obtener todas las actividades
-curl -X GET http://localhost:3000/api/activities/user/uuid-usuario \
-  -H "Authorization: Bearer $TOKEN"
 ```
 
 ### Sincronización con Google Calendar
@@ -648,6 +710,71 @@ CREATE INDEX idx_actividades_usuario_date ON actividades(id_usuario, start_date)
 CREATE INDEX idx_actividades_created ON actividades(event_created);
 CREATE INDEX idx_actividades_status ON actividades(status);
 ```
+
+### ✅ Problema 6: Schema `actividades_detalles` inválido
+
+La tabla estaba definida sin columna `id` (PK) ni `id_actividad` (FK), y el `CREATE UNIQUE INDEX` tenía SQL embebido dentro de sus paréntesis, haciendo el archivo completamente inválido.
+
+**Antes (roto):**
+```sql
+CREATE TABLE actividades_detalles (
+    description TEXT,
+    ...
+);
+CREATE UNIQUE INDEX uq_actividades_detalles_id_actividad
+    ON actividades_detalles(id_actividad
+        CONSTRAINT fk_actividades_detalles_actividad
+        FOREIGN KEY (id_actividad) REFERENCES actividades(id) ON DELETE CASCADE
+);
+```
+
+**Después (correcto):**
+```sql
+CREATE TABLE actividades_detalles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_actividad UUID NOT NULL,
+    description TEXT,
+    ...
+    CONSTRAINT fk_actividades_detalles_actividad
+        FOREIGN KEY (id_actividad) REFERENCES actividades(id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX uq_actividades_detalles_id_actividad
+    ON actividades_detalles(id_actividad);
+```
+
+### ✅ Problema 7: Controller requería `id` e `idUsuario` obligatorios
+
+El Frontend nunca envía `id` al crear actividades (lo genera Google Calendar) ni `idUsuario` en el body — lo tiene disponible en el JWT.
+
+**Solución:** Se implementó `resolveUserId()` con 4 estrategias en cascada:
+1. Campo `idUsuario` en el body (explícito)
+2. `userId` extraído del JWT propio de la API
+3. `clerkUserId` del JWT → búsqueda en BD
+4. `userEmail` del JWT → búsqueda en BD por correo
+
+### ✅ Problema 8: Typo `remiders` en el Frontend
+
+`createActividad.ts` enviaba `remiders` (sin `n`) en lugar de `reminders`.
+
+**Solución:** El controller acepta ambos con el operador `??`:
+```typescript
+const reminders = body.reminders ?? body.remiders;
+```
+
+### ✅ Problema 9: Valores de prioridad incompatibles
+
+El Frontend envía `Alta`/`Media`/`Baja` (español, mayúscula inicial), pero el enum `PriorityLevel` en el dominio usaba `CRITICAL`/`HIGH`/`MEDIUM`/`LOW` y el schema de BD esperaba `alta`/`media`/`baja`.
+
+**Solución:** Función `normalizePriorityValue()` convierte a minúsculas y asigna colores por defecto:
+- `Alta` → `alta`, color `#AB3535`
+- `Media` → `media`, color `#E2761F`
+- `Baja` → `baja`, color `#2FA941`
+
+### ✅ Problema 10: `recurrence` y `reminders` no se persistían
+
+El repositorio no guardaba ni leía los campos de recurrencia ni recordatorios de `actividades_detalles`.
+
+**Solución:** Actualizados `INSERT` y todos los `SELECT` del repository para incluir `recurrence`, `reminders_use_default`, `reminders_overrides`.
 
 ---
 
@@ -766,6 +893,7 @@ Antes de comenzar a usar la API, verifica:
 | **Errores de Compilación** | 0 |
 | **Autenticación** | Clerk + JWT |
 | **Arquitectura** | DDD + Clean Architecture |
+| **Problemas Resueltos** | 10 |
 
 ---
 
@@ -905,6 +1033,30 @@ app.post('/api/repeticiones', AuthMiddleware, repeticionController.create);
 ---
 
 ## 📝 Changelog
+
+### [v2.1.0] - 2026-03-10
+
+#### ✨ Agregado
+- Controller acepta payload formato Google Calendar (sin `idUsuario` ni `id` requeridos)
+- `resolveUserId()`: resolución automática de usuario por JWT, Clerk ID o email
+- Normalización de prioridad: `Alta`/`Media`/`Baja` → `alta`/`media`/`baja` con colores automáticos
+- Tolerancia al typo `remiders` del Frontend (`reminders ?? remiders`)
+- Persistencia de `recurrence`, `reminders_use_default`, `reminders_overrides` en BD
+- Respuesta de `reminders`, `recurrence`, `html_link`, `transparency`, `event_type` en queries
+- Método `getById()` en el controller
+- Método `delete()` con inyección del repositorio en el controller
+
+#### 🔧 Corregido
+- `actividades_detalles`: tabla completamente reescrita (faltaban `id` PK e `id_actividad` FK; `CREATE UNIQUE INDEX` tenía SQL embebido)
+- Comas faltantes en las 4 queries SQL del repository (`\`SQL\`,[params]`)
+- Inyección del `activityRepository` al constructor del controller en `app.ts`
+- Formateo de fechas `start_date`/`end_date` como `YYYY-MM-DD` vía `.toISOString().split('T')[0]`
+
+#### ♻️ Cambiado
+- `ActivityPostController`: constructor recibe 3 parámetros (`createUseCase`, `searchUseCase`, `activityRepository`)
+- `MySqlActivityRepository`: queries `findBy*` actualizadas para incluir campos de `actividades_detalles`
+
+---
 
 ### [v2.0.0] - 2026-03-09
 

@@ -1,15 +1,95 @@
 import type { Request, Response } from 'express';
+import { randomUUID } from 'node:crypto';
 import { CreateActivityUseCase } from '../../Application/CreateActivity.js';
 import { SearchUserActivitiesUseCase } from '../../Application/SearchUserActivities.js';
 import type { CreateActivityRequest } from '../../Application/CreateActivity.js';
+import type { IActivityRepository } from '../../Domain/ActivityRepository.js';
 import type { EventActor, EventDateTime, EventReminders } from '../../Domain/Activity.js';
 import { Activity } from '../../Domain/Activity.js';
+import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 
 export class ActivityPostController {
+  private db = PostgresConnection.getInstance();
+
   constructor(
     private createActivityUseCase: CreateActivityUseCase,
-    private searchActivityUseCase: SearchUserActivitiesUseCase
+    private searchActivityUseCase: SearchUserActivitiesUseCase,
+    private activityRepository: IActivityRepository
   ) {}
+
+  private async resolveUserId(req: Request, explicitUserId?: string): Promise<string | null> {
+    if (explicitUserId && explicitUserId.trim().length > 0) {
+      return explicitUserId;
+    }
+
+    const authUser = (req as any).user as
+      | { id?: string; clerkUserId?: string; correo?: string }
+      | undefined;
+
+    if (authUser?.id) {
+      return authUser.id;
+    }
+
+    if (authUser?.clerkUserId) {
+      const byClerk = await this.db.query(
+        'SELECT id FROM usuarios WHERE clerk_user_id = $1',
+        [authUser.clerkUserId]
+      );
+      if (byClerk.rows.length > 0) {
+        return byClerk.rows[0].id;
+      }
+    }
+
+    if (authUser?.correo) {
+      const byMail = await this.db.query('SELECT id FROM usuarios WHERE correo = $1', [authUser.correo]);
+      if (byMail.rows.length > 0) {
+        return byMail.rows[0].id;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizePriorityValue(value?: string): 'baja' | 'media' | 'alta' | undefined {
+    if (!value) {
+      return undefined;
+    }
+    const normalized = value.toLowerCase();
+    if (normalized === 'alta') {
+      return 'alta';
+    }
+    if (normalized === 'media') {
+      return 'media';
+    }
+    if (normalized === 'baja') {
+      return 'baja';
+    }
+    return undefined;
+  }
+
+  private defaultPriorityColor(value?: 'baja' | 'media' | 'alta'): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+    if (value === 'alta') {
+      return '#AB3535';
+    }
+    if (value === 'media') {
+      return '#E2761F';
+    }
+    return '#2FA941';
+  }
+
+  private parseHour(date?: EventDateTime): number | undefined {
+    if (!date?.dateTime) {
+      return undefined;
+    }
+    const parsed = new Date(date.dateTime);
+    if (Number.isNaN(parsed.getTime())) {
+      return undefined;
+    }
+    return parsed.getHours();
+  }
 
   async create(req: Request, res: Response): Promise<void> {
     try {
@@ -61,34 +141,47 @@ export class ActivityPostController {
         prioridadValor,
       } = bodyParams;
 
-      // Ensure id and idUsuario are strings
-      if (!id || typeof id !== 'string') {
+      const resolvedUserId = await this.resolveUserId(req, idUsuario);
+      if (!resolvedUserId) {
         res.status(400).json({
           success: false,
-          message: 'ID de actividad inválido',
+          message: 'ID de usuario inválido o no disponible en el token',
         });
         return;
       }
 
-      if (!idUsuario || typeof idUsuario !== 'string') {
+      const resolvedActivityId = typeof id === 'string' && id.trim().length > 0 ? id : randomUUID();
+
+      const normalizedReminders = (bodyParams.reminders ?? bodyParams.remiders) as EventReminders | undefined;
+      const normalizedPriority = this.normalizePriorityValue(
+        bodyParams.prioridadValor ??
+          bodyParams.prioridadNivel ??
+          (typeof bodyParams.prioridad === 'string' ? bodyParams.prioridad : undefined)
+      );
+      const normalizedColor = bodyParams.color ?? this.defaultPriorityColor(normalizedPriority);
+
+      const startDate = bodyParams.start as EventDateTime | undefined;
+      const endDate = bodyParams.end as EventDateTime | undefined;
+
+      if (!summary || !startDate || !endDate) {
         res.status(400).json({
           success: false,
-          message: 'ID de usuario inválido',
+          message: 'summary, start y end son obligatorios',
         });
         return;
       }
 
       const request: CreateActivityRequest = {
-        id,
-        idUsuario,
+        id: resolvedActivityId,
+        idUsuario: resolvedUserId,
         kind,
         etag,
         htmlLink,
         summary,
         creator: bodyParams.creator as EventActor,
         organizer: bodyParams.organizer as EventActor,
-        start: bodyParams.start as EventDateTime,
-        end: bodyParams.end as EventDateTime,
+        start: startDate,
+        end: endDate,
         created: bodyParams.created,
         updated: bodyParams.updated,
         iCalUID: bodyParams.iCalUID,
@@ -103,24 +196,24 @@ export class ActivityPostController {
         idEtiqueta: bodyParams.idEtiqueta,
         recurringEventId: bodyParams.recurringEventId,
         originalStartTime: bodyParams.originalStartTime as EventDateTime,
-        reminders: bodyParams.reminders as EventReminders,
+        reminders: normalizedReminders,
         etiqueta: bodyParams.etiqueta,
-        priorityId: 1,
+        priorityId: undefined,
         prioridad: bodyParams.prioridad,
-        prioridadNivel: bodyParams.prioridadNivel,
-        color: bodyParams.color,
+        prioridadNivel: undefined,
+        color: normalizedColor,
         repetitionId: 1,
         idFrecuencia: bodyParams.idFrecuencia,
         diasSemana: bodyParams.diasSemana,
         // RF-03 Fields
-        horaInicio: bodyParams.horaInicio,
-        horaFin: bodyParams.horaFin,
+        horaInicio: bodyParams.horaInicio ?? this.parseHour(startDate),
+        horaFin: bodyParams.horaFin ?? this.parseHour(endDate),
         tiempoDescansoMin: bodyParams.tiempoDescansoMin,
         tiempoMuertoMin: bodyParams.tiempoMuertoMin,
-        source: bodyParams.source,
-        googleEventId: bodyParams.googleEventId,
+        source: bodyParams.source ?? 'local',
+        googleEventId: bodyParams.googleEventId ?? (typeof bodyParams.id === 'string' ? bodyParams.id : undefined),
         frecuencia: bodyParams.frecuencia,
-        prioridadValor: bodyParams.prioridadValor,
+        prioridadValor: normalizedPriority,
       };
 
       if (bodyParams.fechaInicio) {
@@ -165,6 +258,72 @@ export class ActivityPostController {
           location: activity.details.location,
           color: activity.priority?.color,
         },
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  }
+
+  async getById(req: Request, res: Response): Promise<void> {
+    try {
+      const id = req.params.id;
+      if (!id || typeof id !== 'string') {
+        res.status(400).json({
+          success: false,
+          message: 'ID de actividad inválido',
+        });
+        return;
+      }
+
+      const activity = await this.searchActivityUseCase.activityById(id);
+      if (!activity) {
+        res.status(404).json({
+          success: false,
+          message: 'Actividad no encontrada',
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        data: activity,
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  }
+
+  async delete(req: Request, res: Response): Promise<void> {
+    try {
+      const id = req.params.id;
+      if (!id || typeof id !== 'string') {
+        res.status(400).json({
+          success: false,
+          message: 'ID de actividad inválido',
+        });
+        return;
+      }
+
+      const existing = await this.searchActivityUseCase.activityById(id);
+      if (!existing) {
+        res.status(404).json({
+          success: false,
+          message: 'Actividad no encontrada',
+        });
+        return;
+      }
+
+      await this.activityRepository.delete(id);
+
+      res.status(200).json({
+        success: true,
+        message: 'Actividad eliminada correctamente',
       });
     } catch (error) {
       res.status(400).json({

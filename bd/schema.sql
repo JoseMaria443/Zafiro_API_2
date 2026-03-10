@@ -131,6 +131,8 @@ CREATE UNIQUE INDEX uq_prioridad_id_actividad
 
 -- Detalles descriptivos de cada actividad.
 CREATE TABLE actividades_detalles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_actividad UUID NOT NULL,
     description TEXT,
     location VARCHAR(500),
     html_link TEXT,
@@ -153,9 +155,7 @@ CREATE TABLE actividades_detalles (
 );
 
 CREATE UNIQUE INDEX uq_actividades_detalles_id_actividad
-    ON actividades_detalles(id_actividad    CONSTRAINT fk_actividades_detalles_actividad
-        FOREIGN KEY (id_actividad) REFERENCES actividades(id) ON DELETE CASCADE
-);
+    ON actividades_detalles(id_actividad);
 
 -- Catalogo de frecuencias permitidas para repeticion.
 CREATE TABLE frecuencia (
