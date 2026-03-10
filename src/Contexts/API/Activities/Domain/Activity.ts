@@ -10,6 +10,7 @@ export interface EventDateTime {
 
 export interface EventActor {
   email?: string;
+  displayName?: string;
   self?: boolean;
 }
 

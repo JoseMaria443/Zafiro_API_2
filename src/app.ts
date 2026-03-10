@@ -76,6 +76,7 @@ export const createApp = (): Express => {
     searchUserSettingsUseCase,
     updateUserSettingsUseCase,
     deleteUserSettingsUseCase
+  );
 
   // Casos de uso de etiquetas (tags)
   const createTagUseCase = new CreateTagUseCase(tagRepository);
@@ -87,6 +88,7 @@ export const createApp = (): Express => {
     searchTagsUseCase,
     updateTagUseCase,
     deleteTagUseCase
+  );
 
   // Casos de uso de prioridades
   const createPriorityUseCase = new CreatePriorityUseCase(priorityRepository);
@@ -98,8 +100,6 @@ export const createApp = (): Express => {
     searchPrioritiesUseCase,
     updatePriorityUseCase,
     deletePriorityUseCase
-  );
-  );
   );
 
   const runProtected = (req: Request, res: Response, action: () => void): void => {
