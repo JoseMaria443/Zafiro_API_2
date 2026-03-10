@@ -5,12 +5,12 @@ const app = createApp();
 const PORT = process.env.PORT || 3000;
 
 const server = app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log('\n ¡FELICIDADES! API ZAFIRO desplegada exitosamente\n');
+  console.log('\n Zafiro esta vivo \n');
   console.log('═══════════════════════════════════════════════════');
-  console.log(`Servidor corriendo en: http://localhost:${PORT}`);
-  console.log(`Servidor red local:    http://0.0.0.0:${PORT}`);
+  console.log(`Servidor loca: http://localhost:${PORT}`);
+  console.log(`Servidor con ip:    http://0.0.0.0:${PORT}`);
   console.log(`Entorno:               ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Health check:          http://localhost:${PORT}/health`);
+  console.log(`Verificación de estado:          http://localhost:${PORT}/health`);
   console.log('═══════════════════════════════════════════════════');
   console.log('\n📋 Endpoints disponibles:');
   console.log(`   POST /api/auth/login  - Login con Clerk`);
