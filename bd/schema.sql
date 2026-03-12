@@ -204,3 +204,34 @@ CREATE TABLE ajustes_usuario (
 CREATE UNIQUE INDEX uq_ajustes_usuario_id_usuario
     ON ajustes_usuario(id_usuario);
 
+-- Conexion OAuth por usuario para Google Calendar.
+CREATE TABLE user_google_connections (
+    id_usuario UUID PRIMARY KEY,
+    google_email VARCHAR(255),
+    google_account_sub VARCHAR(255),
+    access_token TEXT,
+    refresh_token TEXT,
+    token_type VARCHAR(50),
+    scope TEXT,
+    expires_at TIMESTAMPTZ,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_user_google_connections_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+
+-- Estado de sincronizacion incremental de Google Calendar por usuario.
+CREATE TABLE user_google_sync_state (
+    id_usuario UUID PRIMARY KEY,
+    google_calendar_id VARCHAR(255) NOT NULL DEFAULT 'primary',
+    sync_token TEXT,
+    last_synced_at TIMESTAMPTZ,
+    last_successful_sync_at TIMESTAMPTZ,
+    last_error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_user_google_sync_state_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+

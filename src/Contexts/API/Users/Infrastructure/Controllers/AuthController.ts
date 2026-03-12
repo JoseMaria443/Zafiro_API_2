@@ -190,6 +190,96 @@ export class AuthController {
   }
 
   /**
+   * Login de sesión usando Authorization: Bearer <ClerkToken>
+   * Ideal para sincronizar usuario en BD tras autenticación en frontend.
+   */
+  async loginSession(req: Request, res: Response): Promise<void> {
+    try {
+      const tokenFromHeader = this.extractBearerToken(req.headers.authorization);
+      if (!tokenFromHeader) {
+        res.status(400).json({
+          success: false,
+          message: 'Authorization Bearer token requerido',
+        });
+        return;
+      }
+
+      const { user, token, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
+
+      res.status(200).json({
+        success: true,
+        message: isNewUser ? 'Usuario creado y sesión iniciada' : 'Sesión iniciada correctamente',
+        data: {
+          id: user.id,
+          clerkUserId: user.clerkUserId,
+          correo: user.correo,
+          nombre: user.nombre,
+          token,
+          isNewUser,
+        },
+      });
+    } catch (error) {
+      res.status(401).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  }
+
+  /**
+   * Registro de sesión usando Authorization: Bearer <ClerkToken>
+   * Se utiliza justo después de crear cuenta en Clerk desde el frontend.
+   */
+  async registerSession(req: Request, res: Response): Promise<void> {
+    try {
+      const tokenFromHeader = this.extractBearerToken(req.headers.authorization);
+      if (!tokenFromHeader) {
+        res.status(400).json({
+          success: false,
+          message: 'Authorization Bearer token requerido',
+        });
+        return;
+      }
+
+      const { user, token, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
+
+      if (!isNewUser) {
+        res.status(409).json({
+          success: false,
+          message: 'La cuenta ya existe en la base de datos',
+          data: {
+            id: user.id,
+            clerkUserId: user.clerkUserId,
+            correo: user.correo,
+            nombre: user.nombre,
+            token,
+            isNewUser,
+          },
+        });
+        return;
+      }
+
+      res.status(201).json({
+        success: true,
+        message: 'Cuenta creada y sesión iniciada correctamente',
+        data: {
+          id: user.id,
+          clerkUserId: user.clerkUserId,
+          correo: user.correo,
+          nombre: user.nombre,
+          token,
+          isNewUser,
+        },
+      });
+    } catch (error) {
+      res.status(401).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  }
+
+  /**
    * Obtener perfil del usuario (por UUID)
    */
   async getProfile(req: Request, res: Response): Promise<void> {
@@ -455,6 +545,73 @@ export class AuthController {
     }
   }
 
+  async googleEvents(req: Request, res: Response): Promise<void> {
+    try {
+      const user = await this.resolveAuthenticatedUser(req);
+      const connection = await this.userRepository.getGoogleConnectionByUserId(user.id);
+
+      if (!connection || !connection.isActive) {
+        res.status(400).json({
+          success: false,
+          message: 'El usuario no tiene una conexión Google activa',
+        });
+        return;
+      }
+
+      const accessToken = await this.getValidAccessToken(user.id, connection);
+      const calendarId = typeof req.query.calendarId === 'string' ? req.query.calendarId : 'primary';
+
+      const params = new URLSearchParams();
+      params.set('singleEvents', typeof req.query.singleEvents === 'string' ? req.query.singleEvents : 'true');
+      params.set('showDeleted', typeof req.query.showDeleted === 'string' ? req.query.showDeleted : 'false');
+      params.set('maxResults', typeof req.query.maxResults === 'string' ? req.query.maxResults : '500');
+
+      if (typeof req.query.timeMin === 'string') {
+        params.set('timeMin', req.query.timeMin);
+      }
+
+      if (typeof req.query.timeMax === 'string') {
+        params.set('timeMax', req.query.timeMax);
+      }
+
+      if (typeof req.query.pageToken === 'string') {
+        params.set('pageToken', req.query.pageToken);
+      }
+
+      if (typeof req.query.orderBy === 'string') {
+        params.set('orderBy', req.query.orderBy);
+      }
+
+      const endpoint = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`;
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const payload = (await response.json()) as GoogleCalendarListResponse;
+
+      if (!response.ok) {
+        throw new Error(payload.error?.message || 'No se pudo consultar Google Calendar');
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          items: payload.items || [],
+          nextPageToken: payload.nextPageToken,
+          nextSyncToken: payload.nextSyncToken,
+        },
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'No se pudo consultar eventos de Google Calendar',
+      });
+    }
+  }
+
   async googleDisconnect(req: Request, res: Response): Promise<void> {
     try {
       const user = await this.resolveAuthenticatedUser(req);
@@ -502,6 +659,20 @@ export class AuthController {
       requestUser.correo,
       requestUser.nombre || 'Usuario'
     );
+  }
+
+  private extractBearerToken(authHeader?: string): string | null {
+    if (!authHeader || authHeader.trim().length === 0) {
+      return null;
+    }
+
+    if (authHeader.startsWith('Bearer ')) {
+      const token = authHeader.slice(7).trim();
+      return token.length > 0 ? token : null;
+    }
+
+    const token = authHeader.trim();
+    return token.length > 0 ? token : null;
   }
 
   private validateGoogleOAuthEnv(): void {

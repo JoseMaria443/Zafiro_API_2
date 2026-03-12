@@ -2,6 +2,7 @@ import { User } from '../Domain/User.js';
 import type { IUserRepository } from '../Domain/UserRepository.js';
 import { JwtTokenGenerator } from '../../../../Shared/Infrastructure/Security/JwtTokenGenerator.js';
 import { ClerkService } from '../../../../Shared/Infrastructure/Security/ClerkService.js';
+import { PasswordHasher } from '../../../../Shared/Infrastructure/Security/PasswordHasher.js';
 import { randomUUID } from 'crypto';
 
 export interface LoginResponse {
@@ -13,6 +14,7 @@ export interface LoginResponse {
 export class LoginUserUseCase {
   private jwtGenerator = new JwtTokenGenerator();
   private clerkService = new ClerkService();
+  private passwordHasher = new PasswordHasher();
 
   constructor(private userRepository: IUserRepository) {}
 
@@ -39,22 +41,29 @@ export class LoginUserUseCase {
       // Usuario no existe, crear uno nuevo
       console.log('   → Usuario NO encontrado, creando nuevo usuario en BD...');
       isNewUser = true;
-      const userId = randomUUID();
-      
-      // Crear contraseña temporal (no será usada con Clerk, pero requerida por el modelo)
-      const tempPassword = randomUUID();
-      
-      user = new User(
-        userId,
+      const tempPasswordHash = await this.passwordHasher.hash(randomUUID());
+
+      user = await this.userRepository.findOrCreateByClerkProfile(
         clerkUserInfo.clerkUserId,
         clerkUserInfo.correo,
-        tempPassword,
-        clerkUserInfo.nombre
+        clerkUserInfo.nombre,
+        tempPasswordHash
       );
-
-      await this.userRepository.save(user);
-      console.log(`    Usuario creado exitosamente en BD con ID: ${userId}`);
+      console.log(`    Usuario creado exitosamente en BD con ID: ${user.id}`);
     } else {
+      // Sincroniza cambios de perfil básicos de Clerk.
+      if (user.correo !== clerkUserInfo.correo || user.nombre !== clerkUserInfo.nombre) {
+        const updatedUser = new User(
+          user.id,
+          user.clerkUserId,
+          clerkUserInfo.correo,
+          user.password,
+          clerkUserInfo.nombre
+        );
+        await this.userRepository.update(updatedUser);
+        user = updatedUser;
+      }
+
       console.log(`    Usuario existente encontrado con ID: ${user.id}`);
     }
 

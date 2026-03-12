@@ -4,6 +4,13 @@ import { UserSettings } from './UserSettings.js';
 export interface IUserRepository {
   save(user: User): Promise<void>;
 
+  findOrCreateByClerkProfile(
+    clerkUserId: string,
+    correo: string,
+    nombre: string,
+    passwordHash?: string
+  ): Promise<User>;
+
   findById(id: string): Promise<User | null>;
 
   findByClerkUserId(clerkUserId: string): Promise<User | null>;

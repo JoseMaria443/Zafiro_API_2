@@ -14,6 +14,8 @@ const server = app.listen(Number(PORT), '0.0.0.0', () => {
   console.log('═══════════════════════════════════════════════════');
   console.log('\n📋 Endpoints disponibles:');
   console.log(`   POST /api/auth/login  - Login con Clerk`);
+  console.log(`   POST /api/auth/session - Login con Authorization Bearer Clerk`);
+  console.log(`   POST /api/auth/register/session - Registro con Authorization Bearer Clerk`);
   console.log(`   POST /api/auth/register - Registro`);
   console.log(`   POST /api/calendar/activities - Crear actividad`);
   console.log(`   GET  /api/calendar/activities/user/:userId - Listar actividades\n`);

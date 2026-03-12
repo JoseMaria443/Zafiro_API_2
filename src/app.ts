@@ -33,6 +33,16 @@ import { AuthMiddleware } from './Shared/Infrastructure/Middleware/AuthMiddlewar
 
 export const createApp = (): Express => {
   const app = express();
+
+  const parseAllowedOrigins = (): string[] => {
+    const raw = process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:3001';
+    return raw
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0);
+  };
+
+  const allowedOrigins = parseAllowedOrigins();
   
   // Middleware de autenticación
   const authMiddleware = new AuthMiddleware();
@@ -109,6 +119,25 @@ export const createApp = (): Express => {
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const origin = req.headers.origin;
+    const allowOrigin =
+      typeof origin === 'string' && allowedOrigins.includes(origin)
+        ? origin
+        : allowedOrigins[0] || '*';
+
+    res.header('Access-Control-Allow-Origin', allowOrigin);
+    res.header('Vary', 'Origin');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+
+    next();
+  });
 
   app.get('/health', (req: Request, res: Response) => {
     res.json({ status: 'API is running' });
@@ -140,6 +169,18 @@ export const createApp = (): Express => {
     void activityController.getUserActivities(req, res);
   });
 
+  app.get('/api/calendar/activities/me', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void activityController.getMyActivities(req, res);
+    });
+  });
+
+  app.get('/api/calendar/activities/me/range', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void activityController.getMyActivitiesByRange(req, res);
+    });
+  });
+
   app.get('/api/calendar/activities/user/:userId/date/:date', (req: Request, res: Response) => {
     void activityController.getUserActivitiesByDate(req, res);
   });
@@ -155,6 +196,14 @@ export const createApp = (): Express => {
 
   app.post('/api/auth/login', (req: Request, res: Response) => {
     void authController.login(req, res);
+  });
+
+  app.post('/api/auth/session', (req: Request, res: Response) => {
+    void authController.loginSession(req, res);
+  });
+
+  app.post('/api/auth/register/session', (req: Request, res: Response) => {
+    void authController.registerSession(req, res);
   });
 
   // Rutas de usuarios - Protegidas con JWT
@@ -289,6 +338,12 @@ export const createApp = (): Express => {
   app.get('/api/integrations/google/status', (req: Request, res: Response) => {
     runProtected(req, res, () => {
       void authController.googleStatus(req, res);
+    });
+  });
+
+  app.get('/api/integrations/google/events', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void authController.googleEvents(req, res);
     });
   });
 

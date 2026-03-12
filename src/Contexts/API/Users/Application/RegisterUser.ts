@@ -1,7 +1,6 @@
 import { User } from '../Domain/User.js';
 import type { IUserRepository } from '../Domain/UserRepository.js';
 import { PasswordHasher } from '../../../../Shared/Infrastructure/Security/PasswordHasher.js';
-import { randomUUID } from 'crypto';
 
 export interface RegisterUserRequest {
   correo: string;
@@ -33,27 +32,13 @@ export class RegisterUserUseCase {
 
     // Cifrar contraseña
     const hashedPassword = await this.passwordHasher.hash(request.contrasenna);
-    const userId = randomUUID(); // Generate UUID for the user
 
-    // Crear usuario con UUID y clerk_user_id
-    const newUser = new User(
-      userId,
+    return await this.userRepository.findOrCreateByClerkProfile(
       request.clerkUserId,
       request.correo,
-      hashedPassword,
-      request.nombre
+      request.nombre,
+      hashedPassword
     );
-
-    await this.userRepository.save(newUser);
-
-    // Obtener el usuario recién creado
-    const savedUser = await this.userRepository.findByEmail(request.correo);
-    
-    if (!savedUser) {
-      throw new Error('Error al crear el usuario');
-    }
-
-    return savedUser;
   }
 }
 

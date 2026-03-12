@@ -141,9 +141,38 @@ export class MySqlUserRepository implements IUserRepository {
     return parseInt(result.rows[0]?.count || '0') > 0;
   }
 
-  async findOrCreateByClerkProfile(clerkUserId: string, correo: string, nombre: string): Promise<User> {
+  async findOrCreateByClerkProfile(
+    clerkUserId: string,
+    correo: string,
+    nombre: string,
+    passwordHash?: string
+  ): Promise<User> {
     const existing = await this.findByClerkUserId(clerkUserId);
     if (existing) {
+      if (existing.correo !== correo || existing.nombre !== nombre) {
+        const result = await this.db.query(
+          `UPDATE usuarios
+           SET correo = $1,
+               nombre = $2,
+               updated_at = NOW()
+           WHERE id = $3
+           RETURNING *`,
+          [correo, nombre || 'Usuario', existing.id]
+        );
+
+        if (result.rows.length > 0) {
+          const row = result.rows[0];
+          return new User(
+            row.id,
+            row.clerk_user_id,
+            row.correo,
+            row.contrasenna,
+            row.nombre,
+            row.token_google
+          );
+        }
+      }
+
       return existing;
     }
 
@@ -151,7 +180,7 @@ export class MySqlUserRepository implements IUserRepository {
       `INSERT INTO usuarios (clerk_user_id, correo, contrasenna, nombre)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [clerkUserId, correo, `clerk:${clerkUserId}`, nombre || 'Usuario']
+      [clerkUserId, correo, passwordHash || `clerk:${clerkUserId}`, nombre || 'Usuario']
     );
 
     const row = result.rows[0];

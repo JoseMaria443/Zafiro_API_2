@@ -91,6 +91,37 @@ export class ActivityPostController {
     return parsed.getHours();
   }
 
+  private toCalendarEvent(activity: Activity): Record<string, unknown> {
+    return {
+      id: activity.googleEventId || activity.id,
+      localId: activity.id,
+      summary: activity.summary,
+      status: activity.status,
+      start: activity.start,
+      end: activity.end,
+      description: activity.details.description,
+      location: activity.details.location,
+      htmlLink: activity.htmlLink,
+      source: activity.source,
+      updated: activity.updated,
+      created: activity.created,
+    };
+  }
+
+  private getActivityTimestamp(activity: Activity): number | null {
+    const rawDate = activity.start.dateTime ?? activity.start.date;
+    if (!rawDate) {
+      return null;
+    }
+
+    const timestamp = Date.parse(rawDate);
+    if (Number.isNaN(timestamp)) {
+      return null;
+    }
+
+    return timestamp;
+  }
+
   async create(req: Request, res: Response): Promise<void> {
     try {
       const bodyParams = req.body as Record<string, any>;
@@ -436,6 +467,99 @@ export class ActivityPostController {
           location: activity.details.location,
           color: activity.priority?.color,
         })),
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  }
+
+  async getMyActivities(req: Request, res: Response): Promise<void> {
+    try {
+      const idUsuario = await this.resolveUserId(req);
+
+      if (!idUsuario) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
+
+      const activities = await this.searchActivityUseCase.allActivitiesByUser(idUsuario);
+
+      res.status(200).json({
+        success: true,
+        data: activities.map((activity) => this.toCalendarEvent(activity)),
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  }
+
+  async getMyActivitiesByRange(req: Request, res: Response): Promise<void> {
+    try {
+      const idUsuario = await this.resolveUserId(req);
+      if (!idUsuario) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
+
+      const fromRaw = req.query.from;
+      const toRaw = req.query.to;
+
+      if (typeof fromRaw !== 'string' || typeof toRaw !== 'string') {
+        res.status(400).json({
+          success: false,
+          message: 'Los query params from y to son obligatorios',
+        });
+        return;
+      }
+
+      const fromTimestamp = Date.parse(fromRaw);
+      const toTimestamp = Date.parse(toRaw);
+
+      if (Number.isNaN(fromTimestamp) || Number.isNaN(toTimestamp)) {
+        res.status(400).json({
+          success: false,
+          message: 'Formato de fecha inválido para from/to',
+        });
+        return;
+      }
+
+      if (fromTimestamp > toTimestamp) {
+        res.status(400).json({
+          success: false,
+          message: 'from no puede ser mayor que to',
+        });
+        return;
+      }
+
+      const activities = await this.searchActivityUseCase.allActivitiesByUser(idUsuario);
+      const filtered = activities.filter((activity) => {
+        const timestamp = this.getActivityTimestamp(activity);
+        if (timestamp === null) {
+          return false;
+        }
+        return timestamp >= fromTimestamp && timestamp <= toTimestamp;
+      });
+
+      res.status(200).json({
+        success: true,
+        data: filtered.map((activity) => this.toCalendarEvent(activity)),
+        meta: {
+          count: filtered.length,
+          from: new Date(fromTimestamp).toISOString(),
+          to: new Date(toTimestamp).toISOString(),
+        },
       });
     } catch (error) {
       res.status(400).json({
