@@ -8,7 +8,6 @@ export interface IUserRepository {
     clerkUserId: string,
     correo: string,
     nombre: string,
-    passwordHash?: string
   ): Promise<User>;
 
   findById(id: string): Promise<User | null>;

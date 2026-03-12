@@ -1,8 +1,7 @@
 import { User } from '../Domain/User.js';
 import type { IUserRepository } from '../Domain/UserRepository.js';
 import { ClerkService } from '../../../../Shared/Infrastructure/Security/ClerkService.js';
-import { PasswordHasher } from '../../../../Shared/Infrastructure/Security/PasswordHasher.js';
-import { randomUUID } from 'crypto';
+
 
 export interface LoginResponse {
   user: User;
@@ -11,7 +10,6 @@ export interface LoginResponse {
 
 export class LoginUserUseCase {
   private clerkService = new ClerkService();
-  private passwordHasher = new PasswordHasher();
 
   constructor(private userRepository: IUserRepository) {}
 
@@ -27,13 +25,10 @@ export class LoginUserUseCase {
 
     if (!user) {
       isNewUser = true;
-      const tempPasswordHash = await this.passwordHasher.hash(randomUUID());
-
       user = await this.userRepository.findOrCreateByClerkProfile(
         clerkUserInfo.clerkUserId,
         clerkUserInfo.correo,
         clerkUserInfo.nombre,
-        tempPasswordHash
       );
     } else {
       // Sincroniza cambios de perfil de Clerk si los hay
@@ -42,7 +37,6 @@ export class LoginUserUseCase {
           user.id,
           user.clerkUserId,
           clerkUserInfo.correo,
-          user.password,
           clerkUserInfo.nombre
         );
         await this.userRepository.update(updatedUser);
