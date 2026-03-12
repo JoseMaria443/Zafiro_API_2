@@ -41,7 +41,7 @@ export class LoginUserUseCase {
         );
         await this.userRepository.update(updatedUser);
         user = updatedUser;
-      }
+      } 
     }
 
     return { user, isNewUser };
