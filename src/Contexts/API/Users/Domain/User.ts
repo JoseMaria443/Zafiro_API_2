@@ -2,7 +2,6 @@ export class User {
   readonly id: string; // UUID (formerly number)
   readonly clerkUserId: string; // Clerk authentication ID
   readonly correo: string;
-  readonly password: string;
   readonly nombre: string;
   readonly tokenGoogle?: string;
 
@@ -10,7 +9,6 @@ export class User {
     id: string,
     clerkUserId: string,
     correo: string,
-    password: string,
     nombre: string,
     tokenGoogle?: string
   ) {
@@ -27,9 +25,6 @@ export class User {
       throw new Error('Correo inválido');
     }
 
-    if (!password || password.length < 8) {
-      throw new Error('La contraseña debe tener al menos 8 caracteres');
-    }
 
     if (!nombre || nombre.trim().length === 0) {
       throw new Error('El nombre no puede estar vacío');
@@ -38,7 +33,6 @@ export class User {
     this.id = id;
     this.clerkUserId = clerkUserId;
     this.correo = correo;
-    this.password = password;
     this.nombre = nombre;
     this.tokenGoogle = tokenGoogle;
   }
