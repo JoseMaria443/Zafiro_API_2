@@ -36,8 +36,7 @@ API REST con Node.js + TypeScript + Express para gestión de actividades, calend
 ```bash
 npm install
 ```
-
-### 2. Variables de Entorno
+ Variables de Entorno
 
 Crear archivo `.env` en la raíz del proyecto:
 
@@ -73,7 +72,6 @@ GOOGLE_SYNC_DEFAULT_DAYS_BACK=30
 GOOGLE_SYNC_DEFAULT_DAYS_FORWARD=90
 ```
 
-### 3. Configurar Base de Datos
 
 ```bash
 # Crear la base de datos
@@ -85,74 +83,7 @@ psql -d zafiro_db -f bd/schema.sql
 # O con Supabase
 psql -h db.xxxx.supabase.co -U postgres -d postgres -f bd/schema.sql
 ```
-
-### 4. Iniciar el Servidor
-
-```bash
-# Desarrollo con hot-reload
-npm run dev
-
-# Producción
-npm run build
-npm start
-```
-
-**Deberías ver:**
-```
-🎉 ¡FELICIDADES! API ZAFIRO desplegada exitosamente
-
-═══════════════════════════════════════════════════
-✅ Servidor corriendo en: http://localhost:3000
-✅ CLERK_SECRET_KEY configurada
-✅ DATABASE_URL configurada
-═══════════════════════════════════════════════════
-```
-
----
-
-## 🏗 Arquitectura
-
-### Estructura del Proyecto
-
-```
-Zafiro_API_2/
-├── bd/
-│   └── schema.sql                    # Schema completo de PostgreSQL
-├── src/
-│   ├── app.ts                        # Configuración Express y rutas
-│   ├── server.ts                     # Punto de entrada
-│   └── Contexts/
-│       ├── API/
-│       │   ├── Users/
-│       │   │   ├── Domain/
-│       │   │   ├── Application/
-│       │   │   └── Infrastructure/
-│       │   ├── Activities/
-│       │   │   ├── Domain/
-│       │   │   ├── Application/
-│       │   │   └── Infrastructure/
-│       │   ├── Tags/
-│       │   │   ├── Domain/
-│       │   │   ├── Application/
-│       │   │   └── Infrastructure/
-│       │   └── Priorities/
-│       │       ├── Domain/
-│       │       ├── Application/
-│       │       └── Infrastructure/
-│       └── Shared/
-│           └── Infrastructure/
-│               ├── Database/
-│               │   └── PostgresConnection.ts
-│               ├── Security/
-│               │   ├── ClerkService.ts
-│               │   ├── JwtTokenGenerator.ts
-│               │   └── PasswordHasher.ts
-│               └── Middleware/
-│                   └── AuthMiddleware.ts
-├── package.json
-├── tsconfig.json
-└── README.md
-```
+`
 
 ### Patrón DDD (Domain-Driven Design)
 
@@ -163,94 +94,6 @@ Cada entidad sigue la estructura:
 - **Infrastructure**: Implementaciones concretas (controllers, repositories, servicios externos)
 
 ---
-
-## 💾 Base de Datos
-
-### Schema Principal
-
-#### Tabla `usuarios`
-```sql
-CREATE TABLE usuarios (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  clerk_user_id VARCHAR(255) UNIQUE NOT NULL,
-  correo VARCHAR(255) UNIQUE NOT NULL,
-  nombre VARCHAR(255) NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-#### Tabla `actividades` (Compatible con Google Calendar)
-```sql
-CREATE TABLE actividades (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  id_usuario UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  id_etiqueta INTEGER REFERENCES etiquetas(id) ON DELETE SET NULL,
-  google_event_id VARCHAR(255),
-  google_calendar_id VARCHAR(255),
-  summary VARCHAR(500) NOT NULL,
-  status VARCHAR(20) DEFAULT 'confirmed',
-  start_datetime TIMESTAMPTZ,
-  end_datetime TIMESTAMPTZ,
-  start_date DATE,
-  end_date DATE,
-  start_timezone VARCHAR(100),
-  end_timezone VARCHAR(100),
-  event_created TIMESTAMPTZ,
-  event_updated TIMESTAMPTZ,
-  source VARCHAR(20) DEFAULT 'local',
-  last_synced_at TIMESTAMPTZ,
-  tiempo_descanso_min INTEGER DEFAULT 0,
-  tiempo_muerto_min INTEGER DEFAULT 0,
-  UNIQUE(id_usuario, google_calendar_id, google_event_id)
-);
-```
-
-#### Tabla `actividades_detalles`
-```sql
-CREATE TABLE actividades_detalles (
-  id SERIAL PRIMARY KEY,
-  id_actividad UUID NOT NULL REFERENCES actividades(id) ON DELETE CASCADE,
-  description TEXT,
-  location VARCHAR(500),
-  html_link TEXT,
-  ical_uid VARCHAR(500),
-  organizer_email VARCHAR(255),
-  organizer_display_name VARCHAR(255),
-  creator_email VARCHAR(255),
-  creator_display_name VARCHAR(255),
-  recurrence TEXT[],
-  reminders_use_default BOOLEAN DEFAULT true,
-  reminders_overrides JSONB,
-  raw_payload JSONB,
-  UNIQUE(id_actividad)
-);
-```
-
-#### Tabla `etiquetas` (Tags)
-```sql
-CREATE TABLE etiquetas (
-  id SERIAL PRIMARY KEY,
-  id_usuario UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  nombre VARCHAR(100) NOT NULL,
-  color VARCHAR(7) NOT NULL,
-  transparencia VARCHAR(15),
-  UNIQUE(id_usuario, nombre)
-);
-```
-
-#### Tabla `prioridad`
-```sql
-CREATE TABLE prioridad (
-  id SERIAL PRIMARY KEY,
-  id_actividad UUID NOT NULL REFERENCES actividades(id) ON DELETE CASCADE,
-  valor VARCHAR(10) NOT NULL CHECK (valor IN ('baja', 'media', 'alta')),
-  color VARCHAR(7) DEFAULT '#FFC107',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(id_actividad)
-);
-```
 
 ### Compatibilidad con Google Calendar API
 
