@@ -97,26 +97,6 @@ export class MySqlUserRepository implements IUserRepository {
     );
   }
 
-  async findByEmail(correo: string): Promise<User | null> {
-    const result = await this.db.query(
-      'SELECT * FROM usuarios WHERE correo = $1',
-      [correo]
-    );
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    const row = result.rows[0];
-    return new User(
-      row.id,
-      row.clerk_user_id,
-      row.correo,
-      row.nombre,
-      row.token_google
-    );
-  }
-
   async update(user: User): Promise<void> {
     await this.db.query(
       `UPDATE usuarios 
@@ -128,14 +108,6 @@ export class MySqlUserRepository implements IUserRepository {
 
   async delete(id: string): Promise<void> {
     await this.db.query('DELETE FROM usuarios WHERE id = $1', [id]);
-  }
-
-  async exists(correo: string): Promise<boolean> {
-    const result = await this.db.query(
-      'SELECT COUNT(*) as count FROM usuarios WHERE correo = $1',
-      [correo]
-    );
-    return parseInt(result.rows[0]?.count || '0') > 0;
   }
 
   async findOrCreateByClerkProfile(

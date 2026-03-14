@@ -70,17 +70,6 @@ export class AuthController {
   ) {}
 
   /**
-   * Registro con Clerk (actualmente no se usa, crear usuarios en Clerk primero)
-   * Mantenido para compatibilidad backward
-   */
-  async register(req: Request, res: Response): Promise<void> {
-    res.status(410).json({
-      success: false,
-      message: 'El registro legacy no está soportado. Usa Clerk para autenticación.',
-    });
-  }
-
-  /**
    * Login con Clerk token
    * Valida el token con Clerk y crea/busca el usuario
    */

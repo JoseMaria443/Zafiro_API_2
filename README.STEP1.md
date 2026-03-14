@@ -28,3 +28,9 @@ Dejar la autenticacion del backend alineada con Clerk como unica fuente de ident
 
 - Cerrar rutas publicas de actividades.
 - Evitar que el cliente mande `idUsuario` arbitrario para crear o borrar actividades.
+
+## Avance adicional - Paso 3
+
+- Se removio por completo el legado de contrasenna del contrato de repositorio (`findByEmail` y `exists`).
+- Se elimino el caso de uso `RegisterUserUseCase` y la ruta legacy `POST /api/auth/register`.
+- Se limpiaron dependencias no usadas asociadas al flujo anterior (`bcryptjs` y `jsonwebtoken`).
