@@ -6,6 +6,7 @@ import type { CreateActivityRequest } from '../../Application/CreateActivity.js'
 import type { IActivityRepository } from '../../Domain/ActivityRepository.js';
 import type { EventActor, EventDateTime, EventReminders } from '../../Domain/Activity.js';
 import { Activity } from '../../Domain/Activity.js';
+import { ActivityDetails } from '../../Domain/ActivityDetails.js';
 import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 
 interface GoogleConnectionRecord {
@@ -95,6 +96,21 @@ export class ActivityPostController {
       return undefined;
     }
     return parsed.getHours();
+  }
+
+  private mergeEventDateTime(
+    base: EventDateTime | undefined,
+    override: EventDateTime | undefined
+  ): EventDateTime | undefined {
+    if (!base && !override) {
+      return undefined;
+    }
+
+    return {
+      dateTime: override?.dateTime ?? base?.dateTime,
+      date: override?.date ?? base?.date,
+      timeZone: override?.timeZone ?? base?.timeZone,
+    };
   }
 
   private toGoogleDateTime(date: EventDateTime): Record<string, unknown> {
@@ -302,6 +318,100 @@ export class ActivityPostController {
       const payload = (await response.json()) as { error?: { message?: string } };
       throw new Error(payload.error?.message || 'No se pudo eliminar evento en Google Calendar');
     }
+  }
+
+  private async updateGoogleEventForActivity(activity: Activity): Promise<{ id?: string; htmlLink?: string }> {
+    if (!activity.googleEventId) {
+      return this.createGoogleEventForActivity(activity);
+    }
+
+    const connection = await this.getGoogleConnectionByUserId(activity.idUsuario);
+    if (!connection || !connection.isActive) {
+      return {};
+    }
+
+    const accessToken = await this.getValidGoogleAccessToken(connection);
+    const endpoint = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(activity.googleEventId)}`;
+    const response = await fetch(endpoint, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(this.toGoogleEventPayload(activity)),
+    });
+
+    const payload = (await response.json()) as {
+      id?: string;
+      htmlLink?: string;
+      error?: { message?: string };
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error?.message || 'No se pudo actualizar evento en Google Calendar');
+    }
+
+    return {
+      id: payload.id,
+      htmlLink: payload.htmlLink,
+    };
+  }
+
+  private buildUpdatedActivity(existing: Activity, bodyParams: Record<string, any>): Activity {
+    const summary = bodyParams.summary ?? existing.summary;
+    const start = this.mergeEventDateTime(existing.start, bodyParams.start as EventDateTime | undefined);
+    const end = this.mergeEventDateTime(existing.end, bodyParams.end as EventDateTime | undefined);
+
+    if (!start || !end) {
+      throw new Error('summary, start y end son obligatorios');
+    }
+
+    const details = new ActivityDetails(
+      existing.details.id,
+      existing.id,
+      summary,
+      bodyParams.description ?? existing.details.description,
+      bodyParams.location ?? existing.details.location
+    );
+
+    return new Activity(
+      existing.id,
+      existing.idUsuario,
+      summary,
+      start,
+      end,
+      existing.created,
+      new Date().toISOString(),
+      bodyParams.status ?? existing.status,
+      details,
+      bodyParams.idEtiqueta ?? existing.idEtiqueta,
+      bodyParams.kind ?? existing.kind,
+      bodyParams.etag ?? existing.etag,
+      bodyParams.htmlLink ?? existing.htmlLink,
+      (bodyParams.creator as EventActor | undefined) ?? existing.creator,
+      (bodyParams.organizer as EventActor | undefined) ?? existing.organizer,
+      bodyParams.iCalUID ?? existing.iCalUID,
+      bodyParams.sequence ?? existing.sequence,
+      bodyParams.transparency ?? existing.transparency,
+      bodyParams.eventType ?? existing.eventType,
+      bodyParams.recurrence ?? existing.recurrence,
+      bodyParams.recurringEventId ?? existing.recurringEventId,
+      (bodyParams.originalStartTime as EventDateTime | undefined) ?? existing.originalStartTime,
+      (bodyParams.reminders as EventReminders | undefined) ?? existing.reminders,
+      bodyParams.etiqueta ?? existing.etiqueta,
+      bodyParams.prioridad ?? existing.prioridad,
+      existing.priority,
+      existing.repetition,
+      existing.fechaInicio,
+      existing.fechaFin,
+      bodyParams.horaInicio ?? existing.horaInicio ?? this.parseHour(start),
+      bodyParams.horaFin ?? existing.horaFin ?? this.parseHour(end),
+      bodyParams.tiempoDescansoMin ?? existing.tiempoDescansoMin,
+      bodyParams.tiempoMuertoMin ?? existing.tiempoMuertoMin,
+      bodyParams.source ?? existing.source,
+      existing.googleEventId,
+      bodyParams.frecuencia ?? existing.frecuencia
+    );
   }
 
   private async saveGoogleEventLink(activityId: string, idUsuario: string, googleEventId: string, htmlLink?: string): Promise<void> {
@@ -588,6 +698,75 @@ export class ActivityPostController {
       res.status(200).json({
         success: true,
         data: activity,
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  }
+
+  async update(req: Request, res: Response): Promise<void> {
+    try {
+      const id = req.params.id;
+      if (!id || typeof id !== 'string') {
+        res.status(400).json({
+          success: false,
+          message: 'ID de actividad inválido',
+        });
+        return;
+      }
+
+      const bodyParams = req.body as Record<string, any>;
+      if (typeof bodyParams.idUsuario !== 'undefined') {
+        res.status(400).json({
+          success: false,
+          message: 'No se permite enviar idUsuario en el body. Se resuelve desde el token.',
+        });
+        return;
+      }
+
+      const existing = await this.searchActivityUseCase.activityById(id);
+      if (!existing) {
+        res.status(404).json({
+          success: false,
+          message: 'Actividad no encontrada',
+        });
+        return;
+      }
+
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
+
+      if (existing.idUsuario !== resolvedUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'No autorizado para actualizar esta actividad',
+        });
+        return;
+      }
+
+      const updatedActivity = this.buildUpdatedActivity(existing, bodyParams);
+      await this.activityRepository.update(updatedActivity);
+
+      const googleEvent = await this.updateGoogleEventForActivity(updatedActivity);
+      if (googleEvent.id) {
+        await this.saveGoogleEventLink(updatedActivity.id, updatedActivity.idUsuario, googleEvent.id, googleEvent.htmlLink);
+      }
+
+      const refreshed = await this.searchActivityUseCase.activityById(updatedActivity.id);
+
+      res.status(200).json({
+        success: true,
+        message: 'Actividad actualizada correctamente',
+        data: refreshed ?? updatedActivity,
       });
     } catch (error) {
       res.status(400).json({

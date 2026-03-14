@@ -25,6 +25,92 @@ export interface GoogleCalendarEventInput {
 export class MySqlActivityRepository implements IActivityRepository {
   private db = PostgresConnection.getInstance();
 
+  private async upsertActivityDetails(client: any, activityId: string, activity: Activity): Promise<void> {
+    if (!activity.details) {
+      return;
+    }
+
+    await client.query(
+      `INSERT INTO actividades_detalles (
+         id_actividad,
+         description,
+         location,
+         html_link,
+         organizer_email,
+         organizer_display_name,
+         creator_email,
+         creator_display_name,
+         recurrence,
+         reminders_use_default,
+         reminders_overrides,
+         raw_payload,
+         updated_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+       ON CONFLICT (id_actividad) DO UPDATE
+       SET description = EXCLUDED.description,
+           location = EXCLUDED.location,
+           html_link = EXCLUDED.html_link,
+           organizer_email = EXCLUDED.organizer_email,
+           organizer_display_name = EXCLUDED.organizer_display_name,
+           creator_email = EXCLUDED.creator_email,
+           creator_display_name = EXCLUDED.creator_display_name,
+           recurrence = EXCLUDED.recurrence,
+           reminders_use_default = EXCLUDED.reminders_use_default,
+           reminders_overrides = EXCLUDED.reminders_overrides,
+           raw_payload = EXCLUDED.raw_payload,
+           updated_at = NOW()`,
+      [
+        activityId,
+        activity.details.description || null,
+        activity.details.location || null,
+        activity.htmlLink || null,
+        activity.organizer?.email || null,
+        activity.organizer?.displayName || null,
+        activity.creator?.email || null,
+        activity.creator?.displayName || null,
+        activity.recurrence || null,
+        activity.reminders?.useDefault ?? true,
+        activity.reminders?.overrides ? JSON.stringify(activity.reminders.overrides) : null,
+        null,
+      ]
+    );
+  }
+
+  private async replaceActivityPriority(client: any, activityId: string, activity: Activity): Promise<void> {
+    await client.query('DELETE FROM prioridad WHERE id_actividad = $1', [activityId]);
+
+    if (!activity.priority) {
+      return;
+    }
+
+    await client.query(
+      `INSERT INTO prioridad (id_actividad, valor, color)
+       VALUES ($1, $2, $3)`,
+      [activityId, activity.priority.valor, activity.priority.color]
+    );
+  }
+
+  private async replaceActivityRepetition(client: any, activityId: string, activity: Activity): Promise<void> {
+    await client.query('DELETE FROM repeticiones WHERE id_actividad = $1', [activityId]);
+
+    if (!activity.repetition) {
+      return;
+    }
+
+    await client.query(
+      `INSERT INTO repeticiones (id_frecuencia, dias_semana, fecha_inicio, fecha_fin, id_actividad)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        activity.repetition.idFrecuencia,
+        activity.repetition.diasSemana,
+        activity.repetition.fechaInicio,
+        activity.repetition.fechaFin,
+        activityId,
+      ]
+    );
+  }
+
   async save(activity: Activity): Promise<void> {
     const client = this.db.getPool();
     
@@ -80,75 +166,10 @@ export class MySqlActivityRepository implements IActivityRepository {
       );
       const activityId = activityResult.rows[0]?.id;
 
-      // Insertar detalles de la actividad
-      if (activity.details && activityId) {
-        await client.query(
-          `INSERT INTO actividades_detalles (
-             id_actividad, 
-             description, 
-             location, 
-             html_link, 
-             organizer_email,
-             organizer_display_name,
-             creator_email,
-             creator_display_name,
-             recurrence,
-             reminders_use_default,
-             reminders_overrides,
-             raw_payload
-           ) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-           ON CONFLICT (id_actividad) DO UPDATE
-           SET description = EXCLUDED.description,
-               location = EXCLUDED.location,
-               html_link = EXCLUDED.html_link,
-               organizer_email = EXCLUDED.organizer_email,
-               organizer_display_name = EXCLUDED.organizer_display_name,
-               creator_email = EXCLUDED.creator_email,
-               creator_display_name = EXCLUDED.creator_display_name,
-               recurrence = EXCLUDED.recurrence,
-               reminders_use_default = EXCLUDED.reminders_use_default,
-               reminders_overrides = EXCLUDED.reminders_overrides,
-               raw_payload = EXCLUDED.raw_payload`,
-          [
-            activityId,
-            activity.details.description || null,
-            activity.details.location || null,
-            activity.htmlLink || null,
-            activity.organizer?.email || null,
-            activity.organizer?.displayName || null,
-            activity.creator?.email || null,
-            activity.creator?.displayName || null,
-            activity.recurrence || null,
-            activity.reminders?.useDefault ?? true,
-            activity.reminders?.overrides ? JSON.stringify(activity.reminders.overrides) : null,
-            null
-          ]
-        );
-      }
-
-      // Insertar prioridad si existe
-      if (activity.priority && activityId) {
-        await client.query(
-          `INSERT INTO prioridad (id_actividad, valor, color)
-           VALUES ($1, $2, $3)`,
-          [activityId, activity.priority.valor, activity.priority.color]
-        );
-      }
-
-      // Insertar repetición si existe
-      if (activity.repetition && activityId) {
-        await client.query(
-          `INSERT INTO repeticiones (id_frecuencia, dias_semana, fecha_inicio, fecha_fin, id_actividad)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [
-            activity.repetition.idFrecuencia,
-            activity.repetition.diasSemana,
-            activity.repetition.fechaInicio,
-            activity.repetition.fechaFin,
-            activityId
-          ]
-        );
+      if (activityId) {
+        await this.upsertActivityDetails(client, activityId, activity);
+        await this.replaceActivityPriority(client, activityId, activity);
+        await this.replaceActivityRepetition(client, activityId, activity);
       }
 
       await client.query('COMMIT');
@@ -238,7 +259,67 @@ export class MySqlActivityRepository implements IActivityRepository {
   }
 
   async update(activity: Activity): Promise<void> {
-    await this.save(activity);
+    const client = this.db.getPool();
+
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `UPDATE actividades
+         SET id_etiqueta = $1,
+             google_event_id = $2,
+             summary = $3,
+             status = $4,
+             start_datetime = $5,
+             end_datetime = $6,
+             start_date = $7,
+             end_date = $8,
+             start_timezone = $9,
+             end_timezone = $10,
+             event_updated = $11,
+             source = $12,
+             last_synced_at = $13,
+             tiempo_descanso_min = $14,
+             tiempo_muerto_min = $15,
+             transparency = $16,
+             event_type = $17,
+             recurring_event_id = $18,
+             updated_at = NOW()
+         WHERE id = $19 AND id_usuario = $20`,
+        [
+          activity.idEtiqueta || null,
+          activity.googleEventId || null,
+          activity.summary || 'Sin título',
+          activity.status || 'confirmed',
+          activity.start.dateTime || null,
+          activity.end.dateTime || null,
+          activity.start.date || null,
+          activity.end.date || null,
+          activity.start.timeZone || 'UTC',
+          activity.end.timeZone || 'UTC',
+          activity.updated || new Date().toISOString(),
+          activity.source || 'local',
+          activity.source === 'google' ? new Date().toISOString() : null,
+          activity.tiempoDescansoMin || 0,
+          activity.tiempoMuertoMin || 0,
+          activity.transparency || null,
+          activity.eventType || null,
+          activity.recurringEventId || null,
+          activity.id,
+          activity.idUsuario,
+        ]
+      );
+
+      await this.upsertActivityDetails(client, activity.id, activity);
+      await this.replaceActivityPriority(client, activity.id, activity);
+      await this.replaceActivityRepetition(client, activity.id, activity);
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error actualizando actividad:', error);
+      throw error;
+    }
   }
 
   async delete(id: string): Promise<void> {
