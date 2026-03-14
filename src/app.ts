@@ -4,7 +4,6 @@ import { CreateActivityUseCase } from './Contexts/API/Activities/Application/Cre
 import { SearchUserActivitiesUseCase } from './Contexts/API/Activities/Application/SearchUserActivities.js';
 import { ActivityPostController } from './Contexts/API/Activities/Infrastructure/Controllers/ActivityPostController.js';
 import { MySqlActivityRepository } from './Contexts/API/Activities/Infrastructure/Persistence/MySqlActivityRepository.js';
-import { RegisterUserUseCase } from './Contexts/API/Users/Application/RegisterUser.js';
 import { LoginUserUseCase } from './Contexts/API/Users/Application/LoginUser.js';
 import { GetUserUseCase } from './Contexts/API/Users/Application/GetUser.js';
 import { UpdateUserUseCase } from './Contexts/API/Users/Application/UpdateUser.js';
@@ -64,13 +63,11 @@ export const createApp = (): Express => {
   );
 
   // Casos de uso de usuarios
-  const registerUserUseCase = new RegisterUserUseCase(userRepository);
   const loginUserUseCase = new LoginUserUseCase(userRepository);
   const getUserUseCase = new GetUserUseCase(userRepository);
   const updateUserUseCase = new UpdateUserUseCase(userRepository);
   const deleteUserUseCase = new DeleteUserUseCase(userRepository);
   const authController = new AuthController(
-    registerUserUseCase,
     loginUserUseCase,
     getUserUseCase,
     updateUserUseCase,

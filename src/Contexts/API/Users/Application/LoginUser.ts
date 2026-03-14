@@ -1,20 +1,14 @@
 import { User } from '../Domain/User.js';
 import type { IUserRepository } from '../Domain/UserRepository.js';
-import { JwtTokenGenerator } from '../../../../Shared/Infrastructure/Security/JwtTokenGenerator.js';
 import { ClerkService } from '../../../../Shared/Infrastructure/Security/ClerkService.js';
-import { PasswordHasher } from '../../../../Shared/Infrastructure/Security/PasswordHasher.js';
-import { randomUUID } from 'crypto';
 
 export interface LoginResponse {
   user: User;
-  token: string;
   isNewUser: boolean;
 }
 
 export class LoginUserUseCase {
-  private jwtGenerator = new JwtTokenGenerator();
   private clerkService = new ClerkService();
-  private passwordHasher = new PasswordHasher();
 
   constructor(private userRepository: IUserRepository) {}
 
@@ -41,13 +35,11 @@ export class LoginUserUseCase {
       // Usuario no existe, crear uno nuevo
       console.log('   → Usuario NO encontrado, creando nuevo usuario en BD...');
       isNewUser = true;
-      const tempPasswordHash = await this.passwordHasher.hash(randomUUID());
 
       user = await this.userRepository.findOrCreateByClerkProfile(
         clerkUserInfo.clerkUserId,
         clerkUserInfo.correo,
-        clerkUserInfo.nombre,
-        tempPasswordHash
+        clerkUserInfo.nombre
       );
       console.log(`    Usuario creado exitosamente en BD con ID: ${user.id}`);
     } else {
@@ -57,7 +49,6 @@ export class LoginUserUseCase {
           user.id,
           user.clerkUserId,
           clerkUserInfo.correo,
-          user.password,
           clerkUserInfo.nombre
         );
         await this.userRepository.update(updatedUser);
@@ -67,47 +58,7 @@ export class LoginUserUseCase {
       console.log(`    Usuario existente encontrado con ID: ${user.id}`);
     }
 
-    // Generar JWT del API (para operaciones internas del API)
-    const token = this.jwtGenerator.generateToken({
-      id: user.id,
-      correo: user.correo,
-      nombre: user.nombre,
-      clerkUserId: user.clerkUserId,
-    });
-
-    return { user, token, isNewUser };
-  }
-
-  /**
-   * Login legado con correo/contraseña (mantenido para backward compatibility)
-   */
-  async executeWithEmailPassword(
-    correo: string,
-    contrasenna: string
-  ): Promise<LoginResponse> {
-    if (!correo || correo.trim().length === 0) {
-      throw new Error('El correo es requerido');
-    }
-
-    if (!contrasenna || contrasenna.length === 0) {
-      throw new Error('La contraseña es requerida');
-    }
-
-    const user = await this.userRepository.findByEmail(correo);
-
-    if (!user) {
-      throw new Error('Correo o contraseña inválidos');
-    }
-
-    // Generar JWT
-    const token = this.jwtGenerator.generateToken({
-      id: user.id,
-      correo: user.correo,
-      nombre: user.nombre,
-      clerkUserId: user.clerkUserId,
-    });
-
-    return { user, token, isNewUser: false };
+    return { user, isNewUser };
   }
 }
 

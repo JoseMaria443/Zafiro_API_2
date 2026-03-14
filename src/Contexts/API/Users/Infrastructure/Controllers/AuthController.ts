@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { RegisterUserUseCase } from '../../Application/RegisterUser.js';
 import { LoginUserUseCase } from '../../Application/LoginUser.js';
 import { GetUserUseCase } from '../../Application/GetUser.js';
 import { UpdateUserUseCase } from '../../Application/UpdateUser.js';
@@ -64,7 +63,6 @@ export class AuthController {
   private readonly activityRepository = new MySqlActivityRepository();
 
   constructor(
-    private registerUserUseCase: RegisterUserUseCase,
     private loginUserUseCase: LoginUserUseCase,
     private getUserUseCase: GetUserUseCase,
     private updateUserUseCase: UpdateUserUseCase,
@@ -76,71 +74,10 @@ export class AuthController {
    * Mantenido para compatibilidad backward
    */
   async register(req: Request, res: Response): Promise<void> {
-    try {
-      const { correo, contrasenna, nombre, clerkUserId } = req.body as {
-        correo?: string;
-        contrasenna?: string;
-        nombre?: string;
-        clerkUserId?: string;
-      };
-
-      if (!clerkUserId) {
-        res.status(400).json({
-          success: false,
-          message: 'clerkUserId es requerido para el registro',
-        });
-        return;
-      }
-
-      if (!correo) {
-        res.status(400).json({
-          success: false,
-          message: 'correo es requerido',
-        });
-        return;
-      }
-
-      if (!contrasenna) {
-        res.status(400).json({
-          success: false,
-          message: 'contrasenna es requerido',
-        });
-        return;
-      }
-
-      if (!nombre) {
-        res.status(400).json({
-          success: false,
-          message: 'nombre es requerido',
-        });
-        return;
-      }
-
-      const user = await this.registerUserUseCase.execute({
-        correo,
-        contrasenna,
-        nombre,
-        clerkUserId,
-      });
-
-      const token = (await this.loginUserUseCase.executeWithEmailPassword(user.correo, contrasenna)).token;
-
-      res.status(201).json({
-        success: true,
-        message: 'Usuario registrado correctamente',
-        data: {
-          id: user.id,
-          correo: user.correo,
-          nombre: user.nombre,
-          token,
-        },
-      });
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Error desconocido',
-      });
-    }
+    res.status(410).json({
+      success: false,
+      message: 'El registro legacy no está soportado. Usa Clerk para autenticación.',
+    });
   }
 
   /**
@@ -162,7 +99,7 @@ export class AuthController {
       }
 
       console.log('[AUTH] Token recibido, validando con Clerk...');
-      const { user, token, isNewUser } = await this.loginUserUseCase.execute(clerkToken);
+      const { user, isNewUser } = await this.loginUserUseCase.execute(clerkToken);
 
       console.log(`[AUTH] Login exitoso - Usuario: ${user.correo} (${isNewUser ? 'NUEVO' : 'EXISTENTE'})`);
       console.log(`   → ID: ${user.id}`);
@@ -176,7 +113,6 @@ export class AuthController {
           clerkUserId: user.clerkUserId,
           correo: user.correo,
           nombre: user.nombre,
-          token,
           isNewUser,
         },
       });
@@ -204,7 +140,7 @@ export class AuthController {
         return;
       }
 
-      const { user, token, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
+      const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
 
       res.status(200).json({
         success: true,
@@ -214,7 +150,6 @@ export class AuthController {
           clerkUserId: user.clerkUserId,
           correo: user.correo,
           nombre: user.nombre,
-          token,
           isNewUser,
         },
       });
@@ -241,7 +176,7 @@ export class AuthController {
         return;
       }
 
-      const { user, token, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
+      const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
 
       if (!isNewUser) {
         res.status(409).json({
@@ -252,7 +187,6 @@ export class AuthController {
             clerkUserId: user.clerkUserId,
             correo: user.correo,
             nombre: user.nombre,
-            token,
             isNewUser,
           },
         });
@@ -267,7 +201,6 @@ export class AuthController {
           clerkUserId: user.clerkUserId,
           correo: user.correo,
           nombre: user.nombre,
-          token,
           isNewUser,
         },
       });
@@ -328,12 +261,11 @@ export class AuthController {
         return;
       }
 
-      const { nombre, contrasenna } = req.body;
+      const { nombre } = req.body as { nombre?: string };
 
       const updatedUser = await this.updateUserUseCase.execute({
         id: idParam,
         nombre,
-        contrasenna,
       });
 
       res.status(200).json({
@@ -699,7 +631,12 @@ export class AuthController {
   }
 
   private getStateSecret(): string {
-    return process.env.JWT_SECRET || process.env.CLERK_SECRET_KEY || 'zafiro-state-secret';
+    const secret = process.env.JWT_SECRET || process.env.CLERK_SECRET_KEY;
+    if (!secret || secret.trim().length === 0) {
+      throw new Error('Falta JWT_SECRET o CLERK_SECRET_KEY para firmar state de Google OAuth');
+    }
+
+    return secret;
   }
 
   private signState(payload: StatePayload): string {

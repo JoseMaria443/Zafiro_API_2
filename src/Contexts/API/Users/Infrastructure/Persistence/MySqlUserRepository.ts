@@ -45,9 +45,9 @@ export class MySqlUserRepository implements IUserRepository {
       console.log(`   → Nombre: ${user.nombre}`);
       
       await this.db.query(
-        `INSERT INTO usuarios (id, clerk_user_id, correo, contrasenna, nombre, token_google) 
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [user.id, user.clerkUserId, user.correo, user.password, user.nombre, user.tokenGoogle || null]
+        `INSERT INTO usuarios (id, clerk_user_id, correo, nombre, token_google) 
+         VALUES ($1, $2, $3, $4, $5)`,
+        [user.id, user.clerkUserId, user.correo, user.nombre, user.tokenGoogle || null]
       );
       
       console.log('[DB] Usuario guardado exitosamente en la base de datos');
@@ -72,7 +72,6 @@ export class MySqlUserRepository implements IUserRepository {
       row.id,
       row.clerk_user_id,
       row.correo,
-      row.contrasenna,
       row.nombre,
       row.token_google
     );
@@ -93,7 +92,6 @@ export class MySqlUserRepository implements IUserRepository {
       row.id,
       row.clerk_user_id,
       row.correo,
-      row.contrasenna,
       row.nombre,
       row.token_google
     );
@@ -114,7 +112,6 @@ export class MySqlUserRepository implements IUserRepository {
       row.id,
       row.clerk_user_id,
       row.correo,
-      row.contrasenna,
       row.nombre,
       row.token_google
     );
@@ -123,9 +120,9 @@ export class MySqlUserRepository implements IUserRepository {
   async update(user: User): Promise<void> {
     await this.db.query(
       `UPDATE usuarios 
-       SET clerk_user_id = $1, correo = $2, contrasenna = $3, nombre = $4, token_google = $5
-       WHERE id = $6`,
-      [user.clerkUserId, user.correo, user.password, user.nombre, user.tokenGoogle || null, user.id]
+       SET clerk_user_id = $1, correo = $2, nombre = $3, token_google = $4, updated_at = NOW()
+       WHERE id = $5`,
+      [user.clerkUserId, user.correo, user.nombre, user.tokenGoogle || null, user.id]
     );
   }
 
@@ -144,8 +141,7 @@ export class MySqlUserRepository implements IUserRepository {
   async findOrCreateByClerkProfile(
     clerkUserId: string,
     correo: string,
-    nombre: string,
-    passwordHash?: string
+    nombre: string
   ): Promise<User> {
     const existing = await this.findByClerkUserId(clerkUserId);
     if (existing) {
@@ -166,7 +162,6 @@ export class MySqlUserRepository implements IUserRepository {
             row.id,
             row.clerk_user_id,
             row.correo,
-            row.contrasenna,
             row.nombre,
             row.token_google
           );
@@ -177,10 +172,10 @@ export class MySqlUserRepository implements IUserRepository {
     }
 
     const result = await this.db.query(
-      `INSERT INTO usuarios (clerk_user_id, correo, contrasenna, nombre)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO usuarios (clerk_user_id, correo, nombre)
+       VALUES ($1, $2, $3)
        RETURNING *`,
-      [clerkUserId, correo, passwordHash || `clerk:${clerkUserId}`, nombre || 'Usuario']
+      [clerkUserId, correo, nombre || 'Usuario']
     );
 
     const row = result.rows[0];
@@ -188,7 +183,6 @@ export class MySqlUserRepository implements IUserRepository {
       row.id,
       row.clerk_user_id,
       row.correo,
-      row.contrasenna,
       row.nombre,
       row.token_google
     );

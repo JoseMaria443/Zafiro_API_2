@@ -32,8 +32,6 @@ CREATE TABLE usuarios (
     clerk_user_id VARCHAR(255) UNIQUE NOT NULL,
     -- Correo obtenido del login Clerk (no editable desde UI del app).
     correo VARCHAR(255) UNIQUE,
-    -- Contrasenna almacenada de forma segura (no usado en login Clerk, solo para compatibilidad legacy).
-    contrasenna VARCHAR(255),
     -- Nombre obtenido del login Clerk (no editable desde UI del app).
     nombre VARCHAR(255),
     -- Token de acceso a Google Calendar (se genera durante vinculacion OAuth).
