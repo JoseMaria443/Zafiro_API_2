@@ -17,11 +17,7 @@ export class ActivityPostController {
     private activityRepository: IActivityRepository
   ) {}
 
-  private async resolveUserId(req: Request, explicitUserId?: string): Promise<string | null> {
-    if (explicitUserId && explicitUserId.trim().length > 0) {
-      return explicitUserId;
-    }
-
+  private async resolveUserId(req: Request): Promise<string | null> {
     const authUser = (req as any).user as
       | { id?: string; clerkUserId?: string; correo?: string }
       | undefined;
@@ -172,7 +168,15 @@ export class ActivityPostController {
         prioridadValor,
       } = bodyParams;
 
-      const resolvedUserId = await this.resolveUserId(req, idUsuario);
+      if (typeof idUsuario !== 'undefined') {
+        res.status(400).json({
+          success: false,
+          message: 'No se permite enviar idUsuario en el body. Se resuelve desde el token.',
+        });
+        return;
+      }
+
+      const resolvedUserId = await this.resolveUserId(req);
       if (!resolvedUserId) {
         res.status(400).json({
           success: false,
@@ -318,6 +322,23 @@ export class ActivityPostController {
         return;
       }
 
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
+
+      if (activity.idUsuario !== resolvedUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'No autorizado para consultar esta actividad',
+        });
+        return;
+      }
+
       res.status(200).json({
         success: true,
         data: activity,
@@ -350,6 +371,23 @@ export class ActivityPostController {
         return;
       }
 
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
+
+      if (existing.idUsuario !== resolvedUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'No autorizado para eliminar esta actividad',
+        });
+        return;
+      }
+
       await this.activityRepository.delete(id);
 
       res.status(200).json({
@@ -371,6 +409,23 @@ export class ActivityPostController {
         res.status(400).json({
           success: false,
           message: 'ID de usuario inválido',
+        });
+        return;
+      }
+
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
+
+      if (userIdParam !== resolvedUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'No autorizado para consultar actividades de otro usuario',
         });
         return;
       }
@@ -428,6 +483,23 @@ export class ActivityPostController {
         res.status(400).json({
           success: false,
           message: 'ID de usuario o fecha inválidos',
+        });
+        return;
+      }
+
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
+
+      if (userIdParam !== resolvedUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'No autorizado para consultar actividades de otro usuario',
         });
         return;
       }

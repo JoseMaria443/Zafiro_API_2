@@ -142,28 +142,40 @@ export const createApp = (): Express => {
 
   // Rutas de actividades
   app.post('/api/calendar/activities', (req: Request, res: Response) => {
-    void activityController.create(req, res);
+    runProtected(req, res, () => {
+      void activityController.create(req, res);
+    });
   });
 
   // Alias para compatibilidad con frontend que use rutas /api/activities
   app.post('/api/activities', (req: Request, res: Response) => {
-    void activityController.create(req, res);
+    runProtected(req, res, () => {
+      void activityController.create(req, res);
+    });
   });
 
   app.get('/api/activities/:id', (req: Request, res: Response) => {
-    void activityController.getById(req, res);
+    runProtected(req, res, () => {
+      void activityController.getById(req, res);
+    });
   });
 
   app.delete('/api/activities/:id', (req: Request, res: Response) => {
-    void activityController.delete(req, res);
+    runProtected(req, res, () => {
+      void activityController.delete(req, res);
+    });
   });
 
   app.get('/api/calendar/activities/user/:userId', (req: Request, res: Response) => {
-    void activityController.getUserActivities(req, res);
+    runProtected(req, res, () => {
+      void activityController.getUserActivities(req, res);
+    });
   });
 
   app.get('/api/activities/user/:userId', (req: Request, res: Response) => {
-    void activityController.getUserActivities(req, res);
+    runProtected(req, res, () => {
+      void activityController.getUserActivities(req, res);
+    });
   });
 
   app.get('/api/calendar/activities/me', (req: Request, res: Response) => {
@@ -179,11 +191,15 @@ export const createApp = (): Express => {
   });
 
   app.get('/api/calendar/activities/user/:userId/date/:date', (req: Request, res: Response) => {
-    void activityController.getUserActivitiesByDate(req, res);
+    runProtected(req, res, () => {
+      void activityController.getUserActivitiesByDate(req, res);
+    });
   });
 
   app.get('/api/activities/user/:userId/date/:date', (req: Request, res: Response) => {
-    void activityController.getUserActivitiesByDate(req, res);
+    runProtected(req, res, () => {
+      void activityController.getUserActivitiesByDate(req, res);
+    });
   });
 
   // Rutas de usuarios - Públicas
