@@ -8,6 +8,16 @@ import type { EventActor, EventDateTime, EventReminders } from '../../Domain/Act
 import { Activity } from '../../Domain/Activity.js';
 import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 
+interface GoogleConnectionRecord {
+  idUsuario: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenType?: string;
+  scope?: string;
+  expiresAt?: Date;
+  isActive: boolean;
+}
+
 export class ActivityPostController {
   private db = PostgresConnection.getInstance();
 
@@ -85,6 +95,235 @@ export class ActivityPostController {
       return undefined;
     }
     return parsed.getHours();
+  }
+
+  private toGoogleDateTime(date: EventDateTime): Record<string, unknown> {
+    if (date.dateTime) {
+      const result: Record<string, unknown> = { dateTime: date.dateTime };
+      if (date.timeZone) {
+        result.timeZone = date.timeZone;
+      }
+      return result;
+    }
+
+    if (date.date) {
+      const result: Record<string, unknown> = { date: date.date };
+      if (date.timeZone) {
+        result.timeZone = date.timeZone;
+      }
+      return result;
+    }
+
+    return {};
+  }
+
+  private toGoogleEventPayload(activity: Activity): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+      summary: activity.summary,
+      status: activity.status,
+      start: this.toGoogleDateTime(activity.start),
+      end: this.toGoogleDateTime(activity.end),
+    };
+
+    if (activity.details.description) {
+      payload.description = activity.details.description;
+    }
+
+    if (activity.details.location) {
+      payload.location = activity.details.location;
+    }
+
+    if (activity.recurrence && activity.recurrence.length > 0) {
+      payload.recurrence = activity.recurrence;
+    }
+
+    if (activity.reminders) {
+      payload.reminders = activity.reminders;
+    }
+
+    return payload;
+  }
+
+  private async getGoogleConnectionByUserId(idUsuario: string): Promise<GoogleConnectionRecord | null> {
+    const result = await this.db.query(
+      `SELECT id_usuario, access_token, refresh_token, token_type, scope, expires_at, is_active
+       FROM user_google_connections
+       WHERE id_usuario = $1 AND is_active = TRUE`,
+      [idUsuario]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+    return {
+      idUsuario: row.id_usuario,
+      accessToken: row.access_token || undefined,
+      refreshToken: row.refresh_token || undefined,
+      tokenType: row.token_type || undefined,
+      scope: row.scope || undefined,
+      expiresAt: row.expires_at ? new Date(row.expires_at) : undefined,
+      isActive: Boolean(row.is_active),
+    };
+  }
+
+  private async saveGoogleConnectionToken(idUsuario: string, accessToken: string, expiresAt?: Date): Promise<void> {
+    await this.db.query(
+      `UPDATE user_google_connections
+       SET access_token = $1,
+           expires_at = $2,
+           updated_at = NOW()
+       WHERE id_usuario = $3`,
+      [accessToken, expiresAt || null, idUsuario]
+    );
+
+    await this.db.query(
+      `UPDATE usuarios
+       SET token_google = $1,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [accessToken, idUsuario]
+    );
+  }
+
+  private computeExpiresAt(expiresIn?: number): Date | undefined {
+    if (!expiresIn || Number.isNaN(expiresIn)) {
+      return undefined;
+    }
+    return new Date(Date.now() + expiresIn * 1000);
+  }
+
+  private async refreshGoogleAccessToken(connection: GoogleConnectionRecord): Promise<{ accessToken: string; expiresAt?: Date }> {
+    if (!connection.refreshToken) {
+      throw new Error('La conexión Google no tiene refresh_token para renovar acceso');
+    }
+
+    const body = new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID || '',
+      client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+      refresh_token: connection.refreshToken,
+      grant_type: 'refresh_token',
+    });
+
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    });
+
+    const payload = (await response.json()) as {
+      access_token?: string;
+      expires_in?: number;
+      error?: string;
+      error_description?: string;
+    };
+
+    if (!response.ok || !payload.access_token) {
+      throw new Error(payload.error_description || payload.error || 'No se pudo renovar token de Google');
+    }
+
+    return {
+      accessToken: payload.access_token,
+      expiresAt: this.computeExpiresAt(payload.expires_in),
+    };
+  }
+
+  private async getValidGoogleAccessToken(connection: GoogleConnectionRecord): Promise<string> {
+    const isExpired =
+      connection.expiresAt instanceof Date &&
+      !Number.isNaN(connection.expiresAt.getTime()) &&
+      connection.expiresAt.getTime() - Date.now() < 60_000;
+
+    if (!isExpired && connection.accessToken) {
+      return connection.accessToken;
+    }
+
+    const refreshed = await this.refreshGoogleAccessToken(connection);
+    await this.saveGoogleConnectionToken(connection.idUsuario, refreshed.accessToken, refreshed.expiresAt);
+    return refreshed.accessToken;
+  }
+
+  private async createGoogleEventForActivity(activity: Activity): Promise<{ id?: string; htmlLink?: string }> {
+    const connection = await this.getGoogleConnectionByUserId(activity.idUsuario);
+    if (!connection || !connection.isActive) {
+      return {};
+    }
+
+    const accessToken = await this.getValidGoogleAccessToken(connection);
+    const endpoint = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(this.toGoogleEventPayload(activity)),
+    });
+
+    const payload = (await response.json()) as {
+      id?: string;
+      htmlLink?: string;
+      error?: { message?: string };
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error?.message || 'No se pudo crear evento en Google Calendar');
+    }
+
+    return {
+      id: payload.id,
+      htmlLink: payload.htmlLink,
+    };
+  }
+
+  private async deleteGoogleEventForActivity(activity: Activity): Promise<void> {
+    if (!activity.googleEventId) {
+      return;
+    }
+
+    const connection = await this.getGoogleConnectionByUserId(activity.idUsuario);
+    if (!connection || !connection.isActive) {
+      return;
+    }
+
+    const accessToken = await this.getValidGoogleAccessToken(connection);
+    const endpoint = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(activity.googleEventId)}`;
+    const response = await fetch(endpoint, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok && response.status !== 404) {
+      const payload = (await response.json()) as { error?: { message?: string } };
+      throw new Error(payload.error?.message || 'No se pudo eliminar evento en Google Calendar');
+    }
+  }
+
+  private async saveGoogleEventLink(activityId: string, idUsuario: string, googleEventId: string, htmlLink?: string): Promise<void> {
+    await this.db.query(
+      `UPDATE actividades
+       SET google_event_id = $1,
+           google_calendar_id = 'primary',
+           last_synced_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $2 AND id_usuario = $3`,
+      [googleEventId, activityId, idUsuario]
+    );
+
+    if (htmlLink) {
+      await this.db.query(
+        `UPDATE actividades_detalles
+         SET html_link = COALESCE($1, html_link),
+             updated_at = NOW()
+         WHERE id_actividad = $2`,
+        [htmlLink, activityId]
+      );
+    }
   }
 
   private toCalendarEvent(activity: Activity): Record<string, unknown> {
@@ -261,6 +500,13 @@ export class ActivityPostController {
 
       const activity = await this.createActivityUseCase.execute(request);
 
+      if (activity.source !== 'google') {
+        const googleEvent = await this.createGoogleEventForActivity(activity);
+        if (googleEvent.id) {
+          await this.saveGoogleEventLink(activity.id, activity.idUsuario, googleEvent.id, googleEvent.htmlLink);
+        }
+      }
+
       res.status(201).json({
         success: true,
         message: 'Actividad creada correctamente',
@@ -386,6 +632,10 @@ export class ActivityPostController {
           message: 'No autorizado para eliminar esta actividad',
         });
         return;
+      }
+
+      if (existing.source !== 'google') {
+        await this.deleteGoogleEventForActivity(existing);
       }
 
       await this.activityRepository.delete(id);
