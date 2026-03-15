@@ -59,6 +59,29 @@ export interface CreateActivityRequest {
 export class CreateActivityUseCase {
   constructor(private activityRepository: IActivityRepository) {}
 
+  private toPriorityLevel(
+    prioridadValor?: 'baja' | 'media' | 'alta',
+    prioridadNivel?: PriorityLevel
+  ): PriorityLevel | undefined {
+    if (prioridadNivel) {
+      return prioridadNivel;
+    }
+
+    if (prioridadValor === 'alta') {
+      return PriorityLevel.HIGH;
+    }
+
+    if (prioridadValor === 'media') {
+      return PriorityLevel.MEDIUM;
+    }
+
+    if (prioridadValor === 'baja') {
+      return PriorityLevel.LOW;
+    }
+
+    return undefined;
+  }
+
   async execute(request: CreateActivityRequest): Promise<Activity> {
     // Use UUID string or 1 as fallback for detailsId (it's not a foreign key, just a reference)
     const detailsId = 1; // Fixed value for now
@@ -72,11 +95,12 @@ export class CreateActivityUseCase {
     );
 
     let priority: ActivityPriority | undefined;
-    if (request.priorityId && request.prioridadNivel && request.color) {
+    const priorityLevel = this.toPriorityLevel(request.prioridadValor, request.prioridadNivel);
+    if (priorityLevel && request.color) {
       priority = new ActivityPriority(
         1, // Use fixed ID for now
         request.id,
-        request.prioridadNivel,
+        priorityLevel,
         request.color
       );
     }

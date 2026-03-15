@@ -2,7 +2,7 @@ import { Activity } from '../../Domain/Activity.js';
 import type { IActivityRepository } from '../../Domain/ActivityRepository.js';
 import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 import { ActivityDetails } from '../../Domain/ActivityDetails.js';
-import { ActivityPriority } from '../../Domain/ActivityPriority.js';
+import { ActivityPriority, PriorityLevel } from '../../Domain/ActivityPriority.js';
 import { Repetition } from '../../Domain/Repetition.js';
 import type { EventDateTime, EventActor, EventReminders } from '../../Domain/Activity.js';
 
@@ -24,6 +24,55 @@ export interface GoogleCalendarEventInput {
 
 export class MySqlActivityRepository implements IActivityRepository {
   private db = PostgresConnection.getInstance();
+
+  private toDbPriorityValue(value: PriorityLevel): 'baja' | 'media' | 'alta' {
+    if (value === PriorityLevel.HIGH || value === PriorityLevel.CRITICAL) {
+      return 'alta';
+    }
+
+    if (value === PriorityLevel.MEDIUM) {
+      return 'media';
+    }
+
+    return 'baja';
+  }
+
+  private toDomainPriorityLevel(value: unknown): PriorityLevel | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'alta') {
+      return PriorityLevel.HIGH;
+    }
+
+    if (normalized === 'media') {
+      return PriorityLevel.MEDIUM;
+    }
+
+    if (normalized === 'baja') {
+      return PriorityLevel.LOW;
+    }
+
+    if (normalized === 'high') {
+      return PriorityLevel.HIGH;
+    }
+
+    if (normalized === 'medium') {
+      return PriorityLevel.MEDIUM;
+    }
+
+    if (normalized === 'low') {
+      return PriorityLevel.LOW;
+    }
+
+    if (normalized === 'critical') {
+      return PriorityLevel.CRITICAL;
+    }
+
+    return undefined;
+  }
 
   private async upsertActivityDetails(client: any, activityId: string, activity: Activity): Promise<void> {
     if (!activity.details) {
@@ -87,7 +136,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     await client.query(
       `INSERT INTO prioridad (id_actividad, valor, color)
        VALUES ($1, $2, $3)`,
-      [activityId, activity.priority.valor, activity.priority.color]
+      [activityId, this.toDbPriorityValue(activity.priority.valor), activity.priority.color]
     );
   }
 
@@ -517,11 +566,12 @@ export class MySqlActivityRepository implements IActivityRepository {
     );
 
     let priority: ActivityPriority | undefined;
-    if (row.prioridad_valor) {
+    const priorityLevel = this.toDomainPriorityLevel(row.prioridad_valor);
+    if (priorityLevel) {
       priority = new ActivityPriority(
         row.id,
         row.id_usuario,
-        row.prioridad_valor as any,
+        priorityLevel,
         row.prioridad_color || '#FFC107'
       );
     }

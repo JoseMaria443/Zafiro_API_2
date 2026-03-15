@@ -143,9 +143,9 @@ export class AuthController {
       const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
 
       if (!isNewUser) {
-        res.status(409).json({
-          success: false,
-          message: 'La cuenta ya existe en la base de datos',
+        res.status(200).json({
+          success: true,
+          message: 'La cuenta ya existía; sesión iniciada correctamente',
           data: {
             id: user.id,
             clerkUserId: user.clerkUserId,
