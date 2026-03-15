@@ -138,7 +138,16 @@ export class TagController {
         return;
       }
 
-      const tag = await this.searchTagsUseCase.tagById(idParam);
+      const tagId = Number.parseInt(idParam, 10);
+      if (Number.isNaN(tagId) || tagId < 1) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de tag inválido',
+        });
+        return;
+      }
+
+      const tag = await this.searchTagsUseCase.tagById(tagId);
 
       if (!tag) {
         res.status(404).json({
@@ -194,8 +203,17 @@ export class TagController {
         return;
       }
 
+      const tagId = Number.parseInt(idParam, 10);
+      if (Number.isNaN(tagId) || tagId < 1) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de tag inválido',
+        });
+        return;
+      }
+
       // Verificar que el tag existe y pertenece al usuario
-      const existing = await this.searchTagsUseCase.tagById(idParam);
+      const existing = await this.searchTagsUseCase.tagById(tagId);
       if (!existing) {
         res.status(404).json({
           success: false,
@@ -215,7 +233,7 @@ export class TagController {
       const { nombre, color } = req.body;
 
       const updatedTag = await this.updateTagUseCase.execute({
-        id: idParam,
+        id: tagId,
         nombre,
         color,
       });
@@ -258,8 +276,17 @@ export class TagController {
         return;
       }
 
+      const tagId = Number.parseInt(idParam, 10);
+      if (Number.isNaN(tagId) || tagId < 1) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de tag inválido',
+        });
+        return;
+      }
+
       // Verificar que el tag existe y pertenece al usuario
-      const existing = await this.searchTagsUseCase.tagById(idParam);
+      const existing = await this.searchTagsUseCase.tagById(tagId);
       if (!existing) {
         res.status(404).json({
           success: false,
@@ -276,7 +303,7 @@ export class TagController {
         return;
       }
 
-      await this.deleteTagUseCase.execute(idParam);
+      await this.deleteTagUseCase.execute(tagId);
 
       res.status(200).json({
         success: true,

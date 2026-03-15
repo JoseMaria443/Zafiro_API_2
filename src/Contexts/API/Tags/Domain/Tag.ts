@@ -1,16 +1,16 @@
 export class Tag {
-  readonly id: string; // UUID string
+  readonly id: number;
   readonly idUsuario: string;
   readonly nombre: string;
   readonly color: string;
 
   constructor(
-    id: string,
+    id: number,
     idUsuario: string,
     nombre: string,
     color: string
   ) {
-    if (!id || id.trim().length === 0) {
+    if (!Number.isInteger(id) || id < 1) {
       throw new Error('El ID del tag no puede estar vacío');
     }
 

@@ -1,9 +1,7 @@
 import { Tag } from '../Domain/Tag.js';
 import type { ITagRepository } from '../Domain/TagRepository.js';
-import { randomUUID } from 'crypto';
 
 export interface CreateTagRequest {
-  id?: string;
   idUsuario: string;
   nombre: string;
   color: string;
@@ -22,7 +20,8 @@ export class CreateTagUseCase {
       throw new Error(`El tag "${request.nombre}" ya existe para este usuario`);
     }
 
-    const tagId = request.id || randomUUID(); // Generate UUID if not provided
+    // El id real lo asigna PostgreSQL (IDENTITY) en el repositorio.
+    const tagId = 1;
 
     const tag = new Tag(
       tagId,
@@ -31,8 +30,6 @@ export class CreateTagUseCase {
       request.color
     );
 
-    await this.tagRepository.save(tag);
-
-    return tag;
+    return await this.tagRepository.save(tag);
   }
 }
