@@ -282,7 +282,12 @@ export class AuthController {
   async googleConnect(req: Request, res: Response): Promise<void> {
     try {
       this.validateGoogleOAuthEnv();
-      const user = await this.resolveAuthenticatedUser(req);
+      const expectedCorreo = this.extractExpectedEmail(req);
+      const user = await this.resolveAuthenticatedUser(req, expectedCorreo);
+      console.log(
+        `[GOOGLE_OAUTH] connect iniciado para userId=${user.id}, clerkUserId=${user.clerkUserId}, expectedEmail=${expectedCorreo || 'none'}`
+      );
+
       const state = this.signState({
         userId: user.id,
         clerkUserId: user.clerkUserId,
@@ -299,6 +304,10 @@ export class AuthController {
       authUrl.searchParams.set('scope', this.getGoogleScopes());
       authUrl.searchParams.set('state', state);
 
+      console.log(
+        `[GOOGLE_OAUTH] connect URL generada para userId=${user.id}, redirectUri=${process.env.GOOGLE_REDIRECT_URI}`
+      );
+
       res.status(200).json({
         success: true,
         data: {
@@ -307,6 +316,7 @@ export class AuthController {
         },
       });
     } catch (error) {
+      console.error('[GOOGLE_OAUTH] connect fallido:', error instanceof Error ? error.message : error);
       res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : 'No se pudo iniciar Google OAuth',
@@ -320,7 +330,12 @@ export class AuthController {
 
       const code = req.query.code;
       const state = req.query.state;
+      console.log(
+        `[GOOGLE_OAUTH] callback recibido. hasCode=${typeof code === 'string'}, hasState=${typeof state === 'string'}`
+      );
+
       if (typeof code !== 'string' || typeof state !== 'string') {
+        console.warn('[GOOGLE_OAUTH] callback con parámetros inválidos de code/state');
         res.status(400).json({
           success: false,
           message: 'Parámetros code/state inválidos en callback',
@@ -330,6 +345,7 @@ export class AuthController {
 
       const statePayload = this.verifyState(state);
       if (!statePayload) {
+        console.warn('[GOOGLE_OAUTH] callback rechazado: state inválido o expirado');
         res.status(400).json({
           success: false,
           message: 'state inválido o expirado',
@@ -337,8 +353,13 @@ export class AuthController {
         return;
       }
 
+      console.log(
+        `[GOOGLE_OAUTH] state verificado para userId=${statePayload.userId}, clerkUserId=${statePayload.clerkUserId}`
+      );
+
       const user = await this.userRepository.findById(statePayload.userId);
       if (!user) {
+        console.warn(`[GOOGLE_OAUTH] callback sin usuario local para userId=${statePayload.userId}`);
         res.status(404).json({
           success: false,
           message: 'Usuario no encontrado para completar la conexión',
@@ -347,6 +368,9 @@ export class AuthController {
       }
 
       if (user.clerkUserId !== statePayload.clerkUserId) {
+        console.warn(
+          `[GOOGLE_OAUTH] callback con clerkUserId inconsistente. esperado=${statePayload.clerkUserId}, encontrado=${user.clerkUserId}`
+        );
         res.status(400).json({
           success: false,
           message: 'state no coincide con el usuario autenticado',
@@ -355,6 +379,8 @@ export class AuthController {
       }
 
       const tokenData = await this.exchangeGoogleCode(code);
+      console.log(`[GOOGLE_OAUTH] token exchange exitoso para userId=${user.id}`);
+
       const googleUser = await this.getGoogleUserInfo(tokenData.access_token);
       const expiresAt = this.computeExpiresAt(tokenData.expires_in);
 
@@ -368,7 +394,14 @@ export class AuthController {
         expiresAt,
       });
 
+      console.log(
+        `[GOOGLE_OAUTH] conexión guardada para userId=${user.id}, googleEmail=${googleUser.email || 'unknown'}`
+      );
+
       const syncResult = await this.syncGoogleCalendarForUser(user.id, true);
+      console.log(
+        `[GOOGLE_OAUTH] sincronización inicial completada para userId=${user.id}, imported=${syncResult.imported}`
+      );
 
       res.status(200).json({
         success: true,
@@ -380,6 +413,7 @@ export class AuthController {
         },
       });
     } catch (error) {
+      console.error('[GOOGLE_OAUTH] callback fallido:', error instanceof Error ? error.message : error);
       res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : 'No se pudo completar el callback',
@@ -525,7 +559,7 @@ export class AuthController {
     }
   }
 
-  private async resolveAuthenticatedUser(req: Request): Promise<User> {
+  private async resolveAuthenticatedUser(req: Request, expectedCorreo?: string): Promise<User> {
     const requestUser = (req as any).user as
       | {
           id?: string;
@@ -542,6 +576,9 @@ export class AuthController {
     if (requestUser.id) {
       const userById = await this.userRepository.findById(requestUser.id);
       if (userById) {
+        if (expectedCorreo && userById.correo.toLowerCase() !== expectedCorreo.toLowerCase()) {
+          throw new Error('El correo proporcionado no coincide con el usuario autenticado en Clerk');
+        }
         return userById;
       }
     }
@@ -550,11 +587,31 @@ export class AuthController {
       throw new Error('Token sin datos mínimos de usuario');
     }
 
-    return await this.userRepository.findOrCreateByClerkProfile(
+    const user = await this.userRepository.findOrCreateByClerkProfile(
       requestUser.clerkUserId,
       requestUser.correo,
       requestUser.nombre || 'Usuario'
     );
+
+    if (expectedCorreo && user.correo.toLowerCase() !== expectedCorreo.toLowerCase()) {
+      throw new Error('El correo proporcionado no coincide con el usuario autenticado en Clerk');
+    }
+
+    return user;
+  }
+
+  private extractExpectedEmail(req: Request): string | undefined {
+    const bodyEmail = (req.body as { email?: unknown } | undefined)?.email;
+    if (typeof bodyEmail === 'string' && bodyEmail.trim().length > 0) {
+      return bodyEmail.trim();
+    }
+
+    const queryEmail = req.query.email;
+    if (typeof queryEmail === 'string' && queryEmail.trim().length > 0) {
+      return queryEmail.trim();
+    }
+
+    return undefined;
   }
 
   private extractBearerToken(authHeader?: string): string | null {
