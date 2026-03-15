@@ -130,14 +130,6 @@ export class MySqlUserRepository implements IUserRepository {
     await this.db.query('DELETE FROM usuarios WHERE id = $1', [id]);
   }
 
-  async exists(correo: string): Promise<boolean> {
-    const result = await this.db.query(
-      'SELECT COUNT(*) as count FROM usuarios WHERE correo = $1',
-      [correo]
-    );
-    return parseInt(result.rows[0]?.count || '0') > 0;
-  }
-
   async findOrCreateByClerkProfile(
     clerkUserId: string,
     correo: string,

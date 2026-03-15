@@ -61,7 +61,7 @@ CREATE TABLE actividades (
     -- ID del evento en Google Calendar (para sincronizacion)
     google_event_id VARCHAR(255),
     google_calendar_id VARCHAR(255) DEFAULT 'primary',
-    
+    --as
     -- Campos principales del evento (compatibles con Google Calendar)
     summary VARCHAR(500) NOT NULL,
     status VARCHAR(20) DEFAULT 'confirmed',

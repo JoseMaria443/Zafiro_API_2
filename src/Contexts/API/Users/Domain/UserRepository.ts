@@ -14,13 +14,9 @@ export interface IUserRepository {
 
   findByClerkUserId(clerkUserId: string): Promise<User | null>;
 
-  findByEmail(correo: string): Promise<User | null>;
-
   update(user: User): Promise<void>;
 
   delete(id: string): Promise<void>;
-
-  exists(correo: string): Promise<boolean>;
 }
 
 export interface IUserSettingsRepository {

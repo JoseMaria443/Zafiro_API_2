@@ -3,8 +3,11 @@ import { CreateUserSettingsUseCase } from '../../Application/CreateUserSettings.
 import { SearchUserSettingsUseCase } from '../../Application/SearchUserSettings.js';
 import { UpdateUserSettingsUseCase } from '../../Application/UpdateUserSettings.js';
 import { DeleteUserSettingsUseCase } from '../../Application/DeleteUserSettings.js';
+import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 
 export class UserSettingsController {
+  private db = PostgresConnection.getInstance();
+
   constructor(
     private createUserSettingsUseCase: CreateUserSettingsUseCase,
     private searchUserSettingsUseCase: SearchUserSettingsUseCase,
@@ -12,30 +15,75 @@ export class UserSettingsController {
     private deleteUserSettingsUseCase: DeleteUserSettingsUseCase
   ) {}
 
+  private async resolveUserId(req: Request): Promise<string | null> {
+    const authUser = (req as any).user as
+      | { clerkUserId?: string }
+      | undefined;
+
+    if (!authUser?.clerkUserId) {
+      return null;
+    }
+
+    const result = await this.db.query(
+      'SELECT id FROM usuarios WHERE clerk_user_id = $1',
+      [authUser.clerkUserId]
+    );
+
+    return result.rows[0]?.id ?? null;
+  }
+
+  private validateOwnership(
+    resolvedUserId: string,
+    paramUserId: string,
+    res: Response
+  ): boolean {
+    if (paramUserId !== resolvedUserId) {
+      res.status(403).json({
+        success: false,
+        message: 'No autorizado para acceder a los ajustes de otro usuario',
+      });
+      return false;
+    }
+    return true;
+  }
+
   async create(req: Request, res: Response): Promise<void> {
     try {
-      const { idUsuario, ocupacion } = req.body;
-
-      // Reject if trying to set hora_inicio or hora_fin
-      if (req.body.horaInicio !== undefined || req.body.horaFin !== undefined) {
+      // Bloquear idUsuario en el body, se resuelve desde el token
+      if (typeof (req.body as any).idUsuario !== 'undefined') {
         res.status(400).json({
           success: false,
-          message: 'No se pueden editar hora_inicio y hora_fin. Estos son campos de solo lectura (sistema).',
+          message: 'No se permite enviar idUsuario en el body. Se resuelve desde el token.',
         });
         return;
       }
 
-      if (!idUsuario || typeof idUsuario !== 'string' || idUsuario.trim().length === 0) {
-        res.status(400).json({
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
           success: false,
-          message: 'ID de usuario inválido',
+          message: 'No se pudo resolver el usuario autenticado',
         });
         return;
       }
+
+      // Verificar que :userId de la URL corresponde al token
+      const userIdParam = req.params.userId as string;
+      if (!this.validateOwnership(resolvedUserId, userIdParam, res)) {
+        return;
+      }
+
+      const { ocupacion, horaInicio, horaFin } = req.body as {
+        ocupacion?: string;
+        horaInicio?: number;
+        horaFin?: number;
+      };
 
       const userSettings = await this.createUserSettingsUseCase.execute({
-        idUsuario,
+        idUsuario: resolvedUserId,
         ocupacion,
+        horaInicio,
+        horaFin,
       });
 
       res.status(201).json({
@@ -59,17 +107,21 @@ export class UserSettingsController {
 
   async getByUserId(req: Request, res: Response): Promise<void> {
     try {
-      const userIdParam = req.params.userId as string;
-
-      if (!userIdParam || userIdParam.trim().length === 0) {
-        res.status(400).json({
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
           success: false,
-          message: 'ID de usuario inválido',
+          message: 'No se pudo resolver el usuario autenticado',
         });
         return;
       }
 
-      const userSettings = await this.searchUserSettingsUseCase.execute(userIdParam);
+      const userIdParam = req.params.userId as string;
+      if (!this.validateOwnership(resolvedUserId, userIdParam, res)) {
+        return;
+      }
+
+      const userSettings = await this.searchUserSettingsUseCase.execute(resolvedUserId);
 
       if (!userSettings) {
         res.status(404).json({
@@ -99,30 +151,40 @@ export class UserSettingsController {
 
   async update(req: Request, res: Response): Promise<void> {
     try {
+      // Bloquear idUsuario en el body, se resuelve desde el token
+      if (typeof (req.body as any).idUsuario !== 'undefined') {
+        res.status(400).json({
+          success: false,
+          message: 'No se permite enviar idUsuario en el body. Se resuelve desde el token.',
+        });
+        return;
+      }
+
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
+
       const userIdParam = req.params.userId as string;
-
-      if (!userIdParam || userIdParam.trim().length === 0) {
-        res.status(400).json({
-          success: false,
-          message: 'ID de usuario inválido',
-        });
+      if (!this.validateOwnership(resolvedUserId, userIdParam, res)) {
         return;
       }
 
-      // Reject if trying to edit hora_inicio or hora_fin
-      if (req.body.horaInicio !== undefined || req.body.horaFin !== undefined) {
-        res.status(400).json({
-          success: false,
-          message: 'No se pueden editar hora_inicio y hora_fin. Estos son campos de solo lectura (sistema).',
-        });
-        return;
-      }
-
-      const { ocupacion } = req.body;
+      const { ocupacion, horaInicio, horaFin } = req.body as {
+        ocupacion?: string;
+        horaInicio?: number;
+        horaFin?: number;
+      };
 
       const userSettings = await this.updateUserSettingsUseCase.execute({
-        idUsuario: userIdParam,
+        idUsuario: resolvedUserId,
         ocupacion,
+        horaInicio,
+        horaFin,
       });
 
       res.status(200).json({
@@ -146,17 +208,21 @@ export class UserSettingsController {
 
   async delete(req: Request, res: Response): Promise<void> {
     try {
-      const userIdParam = req.params.userId as string;
-
-      if (!userIdParam || userIdParam.trim().length === 0) {
-        res.status(400).json({
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
           success: false,
-          message: 'ID de usuario inválido',
+          message: 'No se pudo resolver el usuario autenticado',
         });
         return;
       }
 
-      await this.deleteUserSettingsUseCase.execute(userIdParam);
+      const userIdParam = req.params.userId as string;
+      if (!this.validateOwnership(resolvedUserId, userIdParam, res)) {
+        return;
+      }
+
+      await this.deleteUserSettingsUseCase.execute(resolvedUserId);
 
       res.status(200).json({
         success: true,

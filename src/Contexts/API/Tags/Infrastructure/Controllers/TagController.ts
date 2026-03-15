@@ -4,8 +4,11 @@ import { SearchTagsUseCase } from '../../Application/SearchTags.js';
 import { UpdateTagUseCase } from '../../Application/UpdateTag.js';
 import { DeleteTagUseCase } from '../../Application/DeleteTag.js';
 import { Tag } from '../../Domain/Tag.js';
+import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 
 export class TagController {
+  private db = PostgresConnection.getInstance();
+
   constructor(
     private createTagUseCase: CreateTagUseCase,
     private searchTagsUseCase: SearchTagsUseCase,
@@ -13,15 +16,49 @@ export class TagController {
     private deleteTagUseCase: DeleteTagUseCase
   ) {}
 
+  private async resolveUserId(req: Request): Promise<string | null> {
+    const authUser = (req as any).user as
+      | { clerkUserId?: string }
+      | undefined;
+
+    if (!authUser?.clerkUserId) {
+      return null;
+    }
+
+    const result = await this.db.query(
+      'SELECT id FROM usuarios WHERE clerk_user_id = $1',
+      [authUser.clerkUserId]
+    );
+
+    return result.rows[0]?.id ?? null;
+  }
+
   async create(req: Request, res: Response): Promise<void> {
     try {
-      const { id, idUsuario, nombre, color } = req.body;
+      // Bloquear idUsuario en el body
+      if (typeof (req.body as any).idUsuario !== 'undefined') {
+        res.status(400).json({
+          success: false,
+          message: 'No se permite enviar idUsuario en el body. Se resuelve desde el token.',
+        });
+        return;
+      }
+
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
+
+      const { nombre, color } = req.body as { nombre?: string; color?: string };
 
       const tag = await this.createTagUseCase.execute({
-        id,
-        idUsuario,
-        nombre,
-        color,
+        idUsuario: resolvedUserId,
+        nombre: nombre ?? '',
+        color: color ?? '',
       });
 
       res.status(201).json({
@@ -44,19 +81,26 @@ export class TagController {
 
   async getUserTags(req: Request, res: Response): Promise<void> {
     try {
-      const userIdParam = req.params.userId;
-
-      if (!userIdParam || typeof userIdParam !== 'string') {
-        res.status(400).json({
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
           success: false,
-          message: 'ID de usuario inválido',
+          message: 'No se pudo resolver el usuario autenticado',
         });
         return;
       }
 
-      const idUsuario = userIdParam; // Keep as string, not parseInt
+      // Verificar que el userId de la URL corresponde al usuario autenticado
+      const userIdParam = req.params.userId;
+      if (userIdParam && userIdParam !== resolvedUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'No autorizado para consultar etiquetas de otro usuario',
+        });
+        return;
+      }
 
-      const tags = await this.searchTagsUseCase.allTagsByUser(idUsuario);
+      const tags = await this.searchTagsUseCase.allTagsByUser(resolvedUserId);
 
       res.status(200).json({
         success: true,
@@ -76,8 +120,16 @@ export class TagController {
 
   async getTagById(req: Request, res: Response): Promise<void> {
     try {
-      const idParam = req.params.id;
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
 
+      const idParam = req.params.id;
       if (!idParam || typeof idParam !== 'string') {
         res.status(400).json({
           success: false,
@@ -86,12 +138,30 @@ export class TagController {
         return;
       }
 
-      const tag = await this.searchTagsUseCase.tagById(idParam);
+      const tagId = Number.parseInt(idParam, 10);
+      if (Number.isNaN(tagId) || tagId < 1) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de tag inválido',
+        });
+        return;
+      }
+
+      const tag = await this.searchTagsUseCase.tagById(tagId);
 
       if (!tag) {
         res.status(404).json({
           success: false,
           message: 'Tag no encontrado',
+        });
+        return;
+      }
+
+      // Verificar que el tag pertenece al usuario autenticado
+      if (tag.idUsuario !== resolvedUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'No autorizado para consultar esta etiqueta',
         });
         return;
       }
@@ -115,8 +185,16 @@ export class TagController {
 
   async update(req: Request, res: Response): Promise<void> {
     try {
-      const idParam = req.params.id;
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
 
+      const idParam = req.params.id;
       if (!idParam || typeof idParam !== 'string') {
         res.status(400).json({
           success: false,
@@ -125,10 +203,37 @@ export class TagController {
         return;
       }
 
+      const tagId = Number.parseInt(idParam, 10);
+      if (Number.isNaN(tagId) || tagId < 1) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de tag inválido',
+        });
+        return;
+      }
+
+      // Verificar que el tag existe y pertenece al usuario
+      const existing = await this.searchTagsUseCase.tagById(tagId);
+      if (!existing) {
+        res.status(404).json({
+          success: false,
+          message: 'Tag no encontrado',
+        });
+        return;
+      }
+
+      if (existing.idUsuario !== resolvedUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'No autorizado para modificar esta etiqueta',
+        });
+        return;
+      }
+
       const { nombre, color } = req.body;
 
       const updatedTag = await this.updateTagUseCase.execute({
-        id: idParam,
+        id: tagId,
         nombre,
         color,
       });
@@ -153,8 +258,16 @@ export class TagController {
 
   async delete(req: Request, res: Response): Promise<void> {
     try {
-      const idParam = req.params.id;
+      const resolvedUserId = await this.resolveUserId(req);
+      if (!resolvedUserId) {
+        res.status(401).json({
+          success: false,
+          message: 'No se pudo resolver el usuario autenticado',
+        });
+        return;
+      }
 
+      const idParam = req.params.id;
       if (!idParam || typeof idParam !== 'string') {
         res.status(400).json({
           success: false,
@@ -163,7 +276,34 @@ export class TagController {
         return;
       }
 
-      await this.deleteTagUseCase.execute(idParam);
+      const tagId = Number.parseInt(idParam, 10);
+      if (Number.isNaN(tagId) || tagId < 1) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de tag inválido',
+        });
+        return;
+      }
+
+      // Verificar que el tag existe y pertenece al usuario
+      const existing = await this.searchTagsUseCase.tagById(tagId);
+      if (!existing) {
+        res.status(404).json({
+          success: false,
+          message: 'Tag no encontrado',
+        });
+        return;
+      }
+
+      if (existing.idUsuario !== resolvedUserId) {
+        res.status(403).json({
+          success: false,
+          message: 'No autorizado para eliminar esta etiqueta',
+        });
+        return;
+      }
+
+      await this.deleteTagUseCase.execute(tagId);
 
       res.status(200).json({
         success: true,

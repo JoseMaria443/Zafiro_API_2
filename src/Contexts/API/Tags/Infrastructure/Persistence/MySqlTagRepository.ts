@@ -5,15 +5,24 @@ import { PostgresConnection } from '../../../../../Shared/Infrastructure/Databas
 export class MySqlTagRepository implements ITagRepository {
   private db = PostgresConnection.getInstance();
 
-  async save(tag: Tag): Promise<void> {
-    await this.db.query(
-      `INSERT INTO etiquetas (id, id_usuario, nombre, color, transparencia)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [tag.id, tag.idUsuario, tag.nombre, tag.color, null]
+  async save(tag: Tag): Promise<Tag> {
+    const result = await this.db.query(
+      `INSERT INTO etiquetas (id_usuario, nombre, color, transparencia)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [tag.idUsuario, tag.nombre, tag.color, null]
+    );
+
+    const row = result.rows[0];
+    return new Tag(
+      row.id,
+      row.id_usuario,
+      row.nombre,
+      row.color
     );
   }
 
-  async findById(id: string): Promise<Tag | null> {
+  async findById(id: number): Promise<Tag | null> {
     const result = await this.db.query(
       'SELECT * FROM etiquetas WHERE id = $1',
       [id]
@@ -25,7 +34,7 @@ export class MySqlTagRepository implements ITagRepository {
 
     const row = result.rows[0];
     return new Tag(
-      row.id.toString(),
+      row.id,
       row.id_usuario,
       row.nombre,
       row.color
@@ -39,7 +48,7 @@ export class MySqlTagRepository implements ITagRepository {
     );
 
     return result.rows.map((row: any) => new Tag(
-      row.id.toString(),
+      row.id,
       row.id_usuario,
       row.nombre,
       row.color
@@ -58,7 +67,7 @@ export class MySqlTagRepository implements ITagRepository {
 
     const row = result.rows[0];
     return new Tag(
-      row.id.toString(),
+      row.id,
       row.id_usuario,
       row.nombre,
       row.color
@@ -74,7 +83,7 @@ export class MySqlTagRepository implements ITagRepository {
     );
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: number): Promise<void> {
     await this.db.query(
       'DELETE FROM etiquetas WHERE id = $1',
       [id]

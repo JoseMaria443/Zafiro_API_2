@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { RegisterUserUseCase } from '../../Application/RegisterUser.js';
 import { LoginUserUseCase } from '../../Application/LoginUser.js';
 import { GetUserUseCase } from '../../Application/GetUser.js';
 import { UpdateUserUseCase } from '../../Application/UpdateUser.js';
@@ -64,7 +63,6 @@ export class AuthController {
   private readonly activityRepository = new MySqlActivityRepository();
 
   constructor(
-    private registerUserUseCase: RegisterUserUseCase,
     private loginUserUseCase: LoginUserUseCase,
     private getUserUseCase: GetUserUseCase,
     private updateUserUseCase: UpdateUserUseCase,
@@ -227,12 +225,11 @@ export class AuthController {
         return;
       }
 
-      const { nombre, contrasenna } = req.body;
+      const { nombre } = req.body as { nombre?: string };
 
       const updatedUser = await this.updateUserUseCase.execute({
         id: idParam,
         nombre,
-        contrasenna,
       });
 
       res.status(200).json({
@@ -593,12 +590,17 @@ export class AuthController {
       'openid',
       'email',
       'profile',
-      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar',
     ].join(' ');
   }
 
   private getStateSecret(): string {
-    return process.env.JWT_SECRET || process.env.CLERK_SECRET_KEY || 'zafiro-state-secret';
+    const secret = process.env.JWT_SECRET || process.env.CLERK_SECRET_KEY;
+    if (!secret || secret.trim().length === 0) {
+      throw new Error('Falta JWT_SECRET o CLERK_SECRET_KEY para firmar state de Google OAuth');
+    }
+
+    return secret;
   }
 
   private signState(payload: StatePayload): string {

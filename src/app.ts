@@ -4,7 +4,6 @@ import { CreateActivityUseCase } from './Contexts/API/Activities/Application/Cre
 import { SearchUserActivitiesUseCase } from './Contexts/API/Activities/Application/SearchUserActivities.js';
 import { ActivityPostController } from './Contexts/API/Activities/Infrastructure/Controllers/ActivityPostController.js';
 import { MySqlActivityRepository } from './Contexts/API/Activities/Infrastructure/Persistence/MySqlActivityRepository.js';
-import { RegisterUserUseCase } from './Contexts/API/Users/Application/RegisterUser.js';
 import { LoginUserUseCase } from './Contexts/API/Users/Application/LoginUser.js';
 import { GetUserUseCase } from './Contexts/API/Users/Application/GetUser.js';
 import { UpdateUserUseCase } from './Contexts/API/Users/Application/UpdateUser.js';
@@ -64,13 +63,11 @@ export const createApp = (): Express => {
   );
 
   // Casos de uso de usuarios
-  const registerUserUseCase = new RegisterUserUseCase(userRepository);
   const loginUserUseCase = new LoginUserUseCase(userRepository);
   const getUserUseCase = new GetUserUseCase(userRepository);
   const updateUserUseCase = new UpdateUserUseCase(userRepository);
   const deleteUserUseCase = new DeleteUserUseCase(userRepository);
   const authController = new AuthController(
-    registerUserUseCase,
     loginUserUseCase,
     getUserUseCase,
     updateUserUseCase,
@@ -145,28 +142,52 @@ export const createApp = (): Express => {
 
   // Rutas de actividades
   app.post('/api/calendar/activities', (req: Request, res: Response) => {
-    void activityController.create(req, res);
+    runProtected(req, res, () => {
+      void activityController.create(req, res);
+    });
   });
 
   // Alias para compatibilidad con frontend que use rutas /api/activities
   app.post('/api/activities', (req: Request, res: Response) => {
-    void activityController.create(req, res);
+    runProtected(req, res, () => {
+      void activityController.create(req, res);
+    });
   });
 
   app.get('/api/activities/:id', (req: Request, res: Response) => {
-    void activityController.getById(req, res);
+    runProtected(req, res, () => {
+      void activityController.getById(req, res);
+    });
+  });
+
+  app.put('/api/activities/:id', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void activityController.update(req, res);
+    });
+  });
+
+  app.patch('/api/activities/:id', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void activityController.update(req, res);
+    });
   });
 
   app.delete('/api/activities/:id', (req: Request, res: Response) => {
-    void activityController.delete(req, res);
+    runProtected(req, res, () => {
+      void activityController.delete(req, res);
+    });
   });
 
   app.get('/api/calendar/activities/user/:userId', (req: Request, res: Response) => {
-    void activityController.getUserActivities(req, res);
+    runProtected(req, res, () => {
+      void activityController.getUserActivities(req, res);
+    });
   });
 
   app.get('/api/activities/user/:userId', (req: Request, res: Response) => {
-    void activityController.getUserActivities(req, res);
+    runProtected(req, res, () => {
+      void activityController.getUserActivities(req, res);
+    });
   });
 
   app.get('/api/calendar/activities/me', (req: Request, res: Response) => {
@@ -182,22 +203,18 @@ export const createApp = (): Express => {
   });
 
   app.get('/api/calendar/activities/user/:userId/date/:date', (req: Request, res: Response) => {
-    void activityController.getUserActivitiesByDate(req, res);
+    runProtected(req, res, () => {
+      void activityController.getUserActivitiesByDate(req, res);
+    });
   });
 
   app.get('/api/activities/user/:userId/date/:date', (req: Request, res: Response) => {
-    void activityController.getUserActivitiesByDate(req, res);
+    runProtected(req, res, () => {
+      void activityController.getUserActivitiesByDate(req, res);
+    });
   });
 
   // Rutas de usuarios - Públicas
-  app.post('/api/auth/register', (req: Request, res: Response) => {
-    void authController.register(req, res);
-  });
-
-  app.post('/api/auth/login', (req: Request, res: Response) => {
-    void authController.login(req, res);
-  });
-
   app.post('/api/auth/session', (req: Request, res: Response) => {
     void authController.loginSession(req, res);
   });
