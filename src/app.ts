@@ -154,6 +154,18 @@ export const createApp = (): Express => {
     });
   });
 
+  app.get('/api/activities/me', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void activityController.getMyActivities(req, res);
+    });
+  });
+
+  app.get('/api/activities/me/range', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void activityController.getMyActivitiesByRange(req, res);
+    });
+  });
+
   app.get('/api/activities/:id', (req: Request, res: Response) => {
     runProtected(req, res, () => {
       void activityController.getById(req, res);

@@ -57,6 +57,24 @@ export class ActivityPostController {
     return null;
   }
 
+  private async resolveUserParamToInternalId(userIdParam: string): Promise<string | null> {
+    if (!userIdParam || userIdParam.trim().length === 0) {
+      return null;
+    }
+
+    if (userIdParam.startsWith('user_')) {
+      const byClerk = await this.db.query(
+        'SELECT id FROM usuarios WHERE clerk_user_id = $1',
+        [userIdParam]
+      );
+      if (byClerk.rows.length > 0) {
+        return byClerk.rows[0].id;
+      }
+    }
+
+    return userIdParam;
+  }
+
   private normalizePriorityValue(value?: string): 'baja' | 'media' | 'alta' | undefined {
     if (!value) {
       return undefined;
@@ -851,7 +869,16 @@ export class ActivityPostController {
         return;
       }
 
-      if (userIdParam !== resolvedUserId) {
+      const requestedInternalUserId = await this.resolveUserParamToInternalId(userIdParam);
+      if (!requestedInternalUserId) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de usuario inválido',
+        });
+        return;
+      }
+
+      if (requestedInternalUserId !== resolvedUserId) {
         res.status(403).json({
           success: false,
           message: 'No autorizado para consultar actividades de otro usuario',
@@ -859,7 +886,7 @@ export class ActivityPostController {
         return;
       }
 
-      const idUsuario = userIdParam; // Keep as string, not parseInt
+      const idUsuario = requestedInternalUserId;
 
       const activities = await this.searchActivityUseCase.allActivitiesByUser(idUsuario);
 
@@ -925,7 +952,16 @@ export class ActivityPostController {
         return;
       }
 
-      if (userIdParam !== resolvedUserId) {
+      const requestedInternalUserId = await this.resolveUserParamToInternalId(userIdParam);
+      if (!requestedInternalUserId) {
+        res.status(400).json({
+          success: false,
+          message: 'ID de usuario inválido',
+        });
+        return;
+      }
+
+      if (requestedInternalUserId !== resolvedUserId) {
         res.status(403).json({
           success: false,
           message: 'No autorizado para consultar actividades de otro usuario',
@@ -933,7 +969,7 @@ export class ActivityPostController {
         return;
       }
 
-      const idUsuario = userIdParam; // Keep as string, not parseInt
+      const idUsuario = requestedInternalUserId;
       const date = new Date(dateParam);
 
       const activities = await this.searchActivityUseCase.activitiesByUserAndDate(idUsuario, date);
