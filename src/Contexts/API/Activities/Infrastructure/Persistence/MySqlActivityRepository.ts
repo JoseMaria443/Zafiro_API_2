@@ -486,6 +486,28 @@ export class MySqlActivityRepository implements IActivityRepository {
   }
 
   private mapRowToActivity(row: any): Activity {
+    const toIsoString = (value: unknown): string | undefined => {
+      if (!value) {
+        return undefined;
+      }
+
+      if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
+      }
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) {
+          return undefined;
+        }
+
+        const parsed = new Date(trimmed);
+        return Number.isNaN(parsed.getTime()) ? trimmed : parsed.toISOString();
+      }
+
+      return undefined;
+    };
+
     const details = new ActivityDetails(
       Number(row.detalle_id || 1),
       row.id?.toString() || '',
@@ -518,14 +540,19 @@ export class MySqlActivityRepository implements IActivityRepository {
 
     // Crear fechas de inicio y fin
     const now = new Date();
+    const startDateTime = toIsoString(row.start_datetime);
+    const endDateTime = toIsoString(row.end_datetime);
+    const createdAt = toIsoString(row.event_created) || now.toISOString();
+    const updatedAt = toIsoString(row.event_updated) || now.toISOString();
+
     const start: EventDateTime = {
-      dateTime: row.start_datetime || undefined,
+      dateTime: startDateTime,
       date: row.start_date ? new Date(row.start_date).toISOString().split('T')[0] : undefined,
       timeZone: row.start_timezone || 'UTC'
     };
 
     const end: EventDateTime = {
-      dateTime: row.end_datetime || undefined,
+      dateTime: endDateTime,
       date: row.end_date ? new Date(row.end_date).toISOString().split('T')[0] : undefined,
       timeZone: row.end_timezone || 'UTC'
     };
@@ -543,8 +570,8 @@ export class MySqlActivityRepository implements IActivityRepository {
       row.summary || 'Sin título',
       start,
       end,
-      row.event_created || now.toISOString(),
-      row.event_updated || now.toISOString(),
+      createdAt,
+      updatedAt,
       row.status || 'confirmed',
       details,
       row.id_etiqueta || undefined,
