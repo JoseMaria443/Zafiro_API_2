@@ -165,7 +165,7 @@ export class MySqlUserRepository implements IUserRepository {
 
     const result = await this.db.query(
       `INSERT INTO usuarios (clerk_user_id, correo, nombre)
-       VALUES ($1, $2, $3, $4)
+       VALUES ($1, $2, $3)
        RETURNING *`,
       [clerkUserId, correo, nombre || 'Usuario']
     );
