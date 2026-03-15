@@ -215,10 +215,6 @@ export const createApp = (): Express => {
   });
 
   // Rutas de usuarios - Públicas
-  app.post('/api/auth/login', (req: Request, res: Response) => {
-    void authController.login(req, res);
-  });
-
   app.post('/api/auth/session', (req: Request, res: Response) => {
     void authController.loginSession(req, res);
   });
