@@ -69,51 +69,7 @@ export class AuthController {
     private deleteUserUseCase: DeleteUserUseCase
   ) {}
 
-  /**
-   * Login con Clerk token
-   * Valida el token con Clerk y crea/busca el usuario
-   */
-  async login(req: Request, res: Response): Promise<void> {
-    try {
-      console.log(' [AUTH] Intentando login...');
-      const { clerkToken } = req.body as { clerkToken?: string };
-
-      if (!clerkToken || typeof clerkToken !== 'string') {
-        console.log(' [AUTH] clerkToken no proporcionado o inválido');
-        res.status(400).json({
-          success: false,
-          message: 'clerkToken requerido en el body',
-        });
-        return;
-      }
-
-      console.log('[AUTH] Token recibido, validando con Clerk...');
-      const { user, isNewUser } = await this.loginUserUseCase.execute(clerkToken);
-
-      console.log(`[AUTH] Login exitoso - Usuario: ${user.correo} (${isNewUser ? 'NUEVO' : 'EXISTENTE'})`);
-      console.log(`   → ID: ${user.id}`);
-      console.log(`   → Clerk ID: ${user.clerkUserId}`);
-      
-      res.status(200).json({
-        success: true,
-        message: isNewUser ? 'Usuario creado y sesión iniciada' : 'Sesión iniciada correctamente',
-        data: {
-          id: user.id,
-          clerkUserId: user.clerkUserId,
-          correo: user.correo,
-          nombre: user.nombre,
-          isNewUser,
-        },
-      });
-    } catch (error) {
-      console.error('[AUTH] Error en login:', error instanceof Error ? error.message : error);
-      res.status(401).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Error desconocido',
-      });
-    }
-  }
-
+ 
   /**
    * Login de sesión usando Authorization: Bearer <ClerkToken>
    * Ideal para sincronizar usuario en BD tras autenticación en frontend.
