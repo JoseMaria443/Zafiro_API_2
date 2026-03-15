@@ -166,6 +166,12 @@ export const createApp = (): Express => {
     });
   });
 
+  app.patch('/api/activities/:id', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void activityController.update(req, res);
+    });
+  });
+
   app.delete('/api/activities/:id', (req: Request, res: Response) => {
     runProtected(req, res, () => {
       void activityController.delete(req, res);
