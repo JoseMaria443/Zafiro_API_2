@@ -46,7 +46,7 @@ export class MySqlUserRepository implements IUserRepository {
       
       await this.db.query(
         `INSERT INTO usuarios (id, clerk_user_id, correo, nombre, token_google) 
-         VALUES ($1, $2, $3, $4, $5)`,
+        VALUES ($1, $2, $3, $4, $5)`,
         [user.id, user.clerkUserId, user.correo, user.nombre, user.tokenGoogle || null]
       );
       
@@ -97,6 +97,26 @@ export class MySqlUserRepository implements IUserRepository {
     );
   }
 
+  async findByEmail(correo: string): Promise<User | null> {
+    const result = await this.db.query(
+      'SELECT * FROM usuarios WHERE correo = $1',
+      [correo]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+    return new User(
+      row.id,
+      row.clerk_user_id,
+      row.correo,
+      row.nombre,
+      row.token_google
+    );
+  }
+
   async update(user: User): Promise<void> {
     await this.db.query(
       `UPDATE usuarios 
@@ -113,7 +133,7 @@ export class MySqlUserRepository implements IUserRepository {
   async findOrCreateByClerkProfile(
     clerkUserId: string,
     correo: string,
-    nombre: string
+    nombre: string,
   ): Promise<User> {
     const existing = await this.findByClerkUserId(clerkUserId);
     if (existing) {
@@ -145,7 +165,7 @@ export class MySqlUserRepository implements IUserRepository {
 
     const result = await this.db.query(
       `INSERT INTO usuarios (clerk_user_id, correo, nombre)
-       VALUES ($1, $2, $3)
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
       [clerkUserId, correo, nombre || 'Usuario']
     );

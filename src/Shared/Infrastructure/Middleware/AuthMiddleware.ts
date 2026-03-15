@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { ClerkService } from '../Security/ClerkService.js';
 
 export class AuthMiddleware {
+  
   private clerkService = new ClerkService();
 
   async authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -19,6 +20,7 @@ export class AuthMiddleware {
       ? authHeader.slice(7).trim()
       : authHeader.trim();
 
+
     if (!token) {
       res.status(401).json({
         success: false,
@@ -30,12 +32,10 @@ export class AuthMiddleware {
     try {
       const clerkUser = await this.clerkService.validateToken(token);
       (req as any).user = {
-        id: undefined,
+       clerkUserId: clerkUser.clerkUserId,
         correo: clerkUser.correo,
         nombre: clerkUser.nombre,
-        clerkUserId: clerkUser.clerkUserId,
       };
-
       next();
     } catch {
       res.status(401).json({

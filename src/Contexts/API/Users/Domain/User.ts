@@ -25,6 +25,7 @@ export class User {
       throw new Error('Correo inválido');
     }
 
+
     if (!nombre || nombre.trim().length === 0) {
       throw new Error('El nombre no puede estar vacío');
     }

@@ -69,7 +69,26 @@ export class AuthController {
     private deleteUserUseCase: DeleteUserUseCase
   ) {}
 
- 
+  /**
+   * Registro con Clerk (actualmente no se usa, crear usuarios en Clerk primero)
+   * Mantenido para compatibilidad backward
+   */
+  async register(req: Request, res: Response): Promise<void> {
+    try {
+      res.status(410).json({
+        success: false,
+        message: 'El registro legacy no está soportado. Usa Clerk para autenticación.',
+      });
+      
+    } catch (error) {
+      console.error('[AUTH] Error en login:', error instanceof Error ? error.message : error);
+      res.status(401).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  }
+
   /**
    * Login de sesión usando Authorization: Bearer <ClerkToken>
    * Ideal para sincronizar usuario en BD tras autenticación en frontend.
@@ -157,7 +176,7 @@ export class AuthController {
     }
   }
 
-  /**
+  /*
    * Obtener perfil del usuario (por UUID)
    */
   async getProfile(req: Request, res: Response): Promise<void> {

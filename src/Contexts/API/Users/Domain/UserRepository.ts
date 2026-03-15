@@ -7,7 +7,7 @@ export interface IUserRepository {
   findOrCreateByClerkProfile(
     clerkUserId: string,
     correo: string,
-    nombre: string
+    nombre: string,
   ): Promise<User>;
 
   findById(id: string): Promise<User | null>;
