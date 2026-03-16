@@ -1096,7 +1096,8 @@ export class ActivityPostController {
       res.status(200).json({
         success: true,
         data: activities.map((activity: Activity) => ({
-          id: activity.id,
+          id: activity.googleEventId || activity.id,
+          localId: activity.id,
           kind: activity.kind,
           etag: activity.etag,
           htmlLink: activity.htmlLink,
@@ -1189,7 +1190,8 @@ export class ActivityPostController {
         success: true,
         date: date.toISOString().split('T')[0],
         data: activities.map((activity: Activity) => ({
-          id: activity.id,
+          id: activity.googleEventId || activity.id,
+          localId: activity.id,
           kind: activity.kind,
           etag: activity.etag,
           htmlLink: activity.htmlLink,
