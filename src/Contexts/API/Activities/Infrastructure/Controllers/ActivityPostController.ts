@@ -105,6 +105,82 @@ export class ActivityPostController {
     return '#2FA941';
   }
 
+  private normalizeGoogleFrequency(value: unknown): 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | undefined {
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (!normalized) {
+        return undefined;
+      }
+
+      if (normalized === 'diaria' || normalized === 'daily') {
+        return 'DAILY';
+      }
+
+      if (normalized === 'semanal' || normalized === 'weekly') {
+        return 'WEEKLY';
+      }
+
+      if (normalized === 'mensual' || normalized === 'monthly') {
+        return 'MONTHLY';
+      }
+
+      if (normalized === 'anual' || normalized === 'yearly') {
+        return 'YEARLY';
+      }
+    }
+
+    if (typeof value === 'number') {
+      if (value === 1) {
+        return 'DAILY';
+      }
+      if (value === 2) {
+        return 'WEEKLY';
+      }
+      if (value === 3) {
+        return 'MONTHLY';
+      }
+      if (value === 4) {
+        return 'YEARLY';
+      }
+    }
+
+    return undefined;
+  }
+
+  private buildGoogleRecurrence(bodyParams: Record<string, any>): string[] | undefined {
+    if (Array.isArray(bodyParams.recurrence) && bodyParams.recurrence.length > 0) {
+      return bodyParams.recurrence;
+    }
+
+    const frequency = this.normalizeGoogleFrequency(bodyParams.frecuencia ?? bodyParams.idFrecuencia);
+    if (!frequency) {
+      return undefined;
+    }
+
+    const parts: string[] = [`FREQ=${frequency}`];
+
+    if (frequency === 'WEEKLY' && typeof bodyParams.diasSemana === 'string') {
+      const byDay = bodyParams.diasSemana
+        .split(',')
+        .map((value: string) => value.trim().toUpperCase().slice(0, 3))
+        .filter((value: string) => ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].includes(value));
+
+      if (byDay.length > 0) {
+        parts.push(`BYDAY=${byDay.join(',')}`);
+      }
+    }
+
+    const rawUntil = bodyParams.fechaFin;
+    if (typeof rawUntil === 'string') {
+      const parsedUntil = new Date(rawUntil);
+      if (!Number.isNaN(parsedUntil.getTime())) {
+        parts.push(`UNTIL=${parsedUntil.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}`);
+      }
+    }
+
+    return [`RRULE:${parts.join(';')}`];
+  }
+
   private parseHour(date?: EventDateTime): number | undefined {
     if (!date?.dateTime) {
       return undefined;
@@ -555,6 +631,7 @@ export class ActivityPostController {
       const resolvedActivityId = typeof id === 'string' && id.trim().length > 0 ? id : randomUUID();
 
       const normalizedReminders = (bodyParams.reminders ?? bodyParams.remiders) as EventReminders | undefined;
+      const normalizedRecurrence = this.buildGoogleRecurrence(bodyParams);
       const normalizedPriority = this.normalizePriorityValue(
         bodyParams.prioridadValor ??
           bodyParams.prioridadNivel ??
@@ -571,6 +648,19 @@ export class ActivityPostController {
           message: 'summary, start y end son obligatorios',
         });
         return;
+      }
+
+      // Se exige conexión activa para que create quede sincronizado a Google Calendar.
+      if (bodyParams.source !== 'google') {
+        const connection = await this.getGoogleConnectionByUserId(resolvedUserId);
+        if (!connection || !connection.isActive) {
+          res.status(409).json({
+            success: false,
+            message:
+              'Para crear actividades desde la app se requiere Google Calendar conectado. Ejecuta /api/integrations/google/connect primero.',
+          });
+          return;
+        }
       }
 
       const request: CreateActivityRequest = {
@@ -590,7 +680,7 @@ export class ActivityPostController {
         sequence: bodyParams.sequence,
         transparency: bodyParams.transparency,
         eventType: bodyParams.eventType,
-        recurrence: bodyParams.recurrence,
+        recurrence: normalizedRecurrence,
         status: bodyParams.status,
         detailsId: 1,
         description: bodyParams.description,
