@@ -496,7 +496,7 @@ export class ActivityPostController {
       },
     });
 
-    if (!response.ok && response.status !== 404) {
+    if (!response.ok && response.status !== 404 && response.status !== 410) {
       const payload = (await response.json()) as { error?: { message?: string } };
       throw new Error(payload.error?.message || 'No se pudo eliminar evento en Google Calendar');
     }
@@ -1043,11 +1043,11 @@ export class ActivityPostController {
         return;
       }
 
-      if (existing.source !== 'google') {
+      if (existing.googleEventId) {
         await this.deleteGoogleEventForActivity(existing);
       }
 
-      await this.activityRepository.delete(id);
+      await this.activityRepository.delete(existing.id);
 
       res.status(200).json({
         success: true,
