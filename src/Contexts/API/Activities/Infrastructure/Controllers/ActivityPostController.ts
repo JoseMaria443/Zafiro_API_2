@@ -7,6 +7,7 @@ import type { IActivityRepository } from '../../Domain/ActivityRepository.js';
 import type { EventActor, EventDateTime, EventReminders } from '../../Domain/Activity.js';
 import { Activity } from '../../Domain/Activity.js';
 import { ActivityDetails } from '../../Domain/ActivityDetails.js';
+import { Repetition } from '../../Domain/Repetition.js';
 import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 
 interface GoogleConnectionRecord {
@@ -207,6 +208,22 @@ export class ActivityPostController {
     };
   }
 
+  private keepExistingTimeZone(
+    existing: EventDateTime | undefined,
+    merged: EventDateTime | undefined
+  ): EventDateTime | undefined {
+    if (!merged) {
+      return undefined;
+    }
+
+    return {
+      dateTime: merged.dateTime,
+      date: merged.date,
+      // La zona horaria se mantiene fija en updates para evitar desplazamientos de horario.
+      timeZone: existing?.timeZone ?? merged.timeZone,
+    };
+  }
+
   private toGoogleDateTime(date: EventDateTime): Record<string, unknown> {
     if (date.dateTime) {
       const result: Record<string, unknown> = { dateTime: date.dateTime };
@@ -252,6 +269,77 @@ export class ActivityPostController {
     }
 
     return payload;
+  }
+
+  private parseFrequencyId(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+      return value;
+    }
+
+    if (typeof value === 'string' && value.trim().length > 0) {
+      const parsed = Number(value);
+      if (Number.isInteger(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+
+    return undefined;
+  }
+
+  private parseDateValue(value: unknown): Date | undefined {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value;
+    }
+
+    if (typeof value === 'string' && value.trim().length > 0) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+
+    return undefined;
+  }
+
+  private resolveUpdatedRepetition(
+    existing: Activity,
+    bodyParams: Record<string, any>
+  ): { repetition?: Repetition; fechaInicio?: Date; fechaFin?: Date } {
+    const hasRepetitionPayload =
+      Object.prototype.hasOwnProperty.call(bodyParams, 'idFrecuencia') ||
+      Object.prototype.hasOwnProperty.call(bodyParams, 'diasSemana') ||
+      Object.prototype.hasOwnProperty.call(bodyParams, 'fechaInicio') ||
+      Object.prototype.hasOwnProperty.call(bodyParams, 'fechaFin');
+
+    if (!hasRepetitionPayload) {
+      return {
+        repetition: existing.repetition,
+        fechaInicio: existing.fechaInicio,
+        fechaFin: existing.fechaFin,
+      };
+    }
+
+    const idFrecuencia = this.parseFrequencyId(bodyParams.idFrecuencia) ?? existing.repetition?.idFrecuencia;
+    const diasSemana =
+      typeof bodyParams.diasSemana === 'string' && bodyParams.diasSemana.trim().length > 0
+        ? bodyParams.diasSemana.trim()
+        : existing.repetition?.diasSemana;
+    const fechaInicio = this.parseDateValue(bodyParams.fechaInicio) ?? existing.repetition?.fechaInicio;
+    const fechaFin = this.parseDateValue(bodyParams.fechaFin) ?? existing.repetition?.fechaFin;
+
+    if (idFrecuencia && diasSemana && fechaInicio && fechaFin) {
+      return {
+        repetition: new Repetition(1, existing.id, idFrecuencia, diasSemana, fechaInicio, fechaFin),
+        fechaInicio,
+        fechaFin,
+      };
+    }
+
+    return {
+      repetition: undefined,
+      fechaInicio: undefined,
+      fechaFin: undefined,
+    };
   }
 
   private async getGoogleConnectionByUserId(idUsuario: string): Promise<GoogleConnectionRecord | null> {
@@ -453,8 +541,16 @@ export class ActivityPostController {
 
   private buildUpdatedActivity(existing: Activity, bodyParams: Record<string, any>): Activity {
     const summary = bodyParams.summary ?? existing.summary;
-    const start = this.mergeEventDateTime(existing.start, bodyParams.start as EventDateTime | undefined);
-    const end = this.mergeEventDateTime(existing.end, bodyParams.end as EventDateTime | undefined);
+    const normalizedRecurrence = this.buildGoogleRecurrence(bodyParams) ?? bodyParams.recurrence ?? existing.recurrence;
+    const repetitionUpdate = this.resolveUpdatedRepetition(existing, bodyParams);
+    const start = this.keepExistingTimeZone(
+      existing.start,
+      this.mergeEventDateTime(existing.start, bodyParams.start as EventDateTime | undefined)
+    );
+    const end = this.keepExistingTimeZone(
+      existing.end,
+      this.mergeEventDateTime(existing.end, bodyParams.end as EventDateTime | undefined)
+    );
 
     if (!start || !end) {
       throw new Error('summary, start y end son obligatorios');
@@ -488,16 +584,16 @@ export class ActivityPostController {
       bodyParams.sequence ?? existing.sequence,
       bodyParams.transparency ?? existing.transparency,
       bodyParams.eventType ?? existing.eventType,
-      bodyParams.recurrence ?? existing.recurrence,
+      normalizedRecurrence,
       bodyParams.recurringEventId ?? existing.recurringEventId,
       (bodyParams.originalStartTime as EventDateTime | undefined) ?? existing.originalStartTime,
       (bodyParams.reminders as EventReminders | undefined) ?? existing.reminders,
       bodyParams.etiqueta ?? existing.etiqueta,
       bodyParams.prioridad ?? existing.prioridad,
       existing.priority,
-      existing.repetition,
-      existing.fechaInicio,
-      existing.fechaFin,
+      repetitionUpdate.repetition,
+      repetitionUpdate.fechaInicio,
+      repetitionUpdate.fechaFin,
       bodyParams.horaInicio ?? existing.horaInicio ?? this.parseHour(start),
       bodyParams.horaFin ?? existing.horaFin ?? this.parseHour(end),
       bodyParams.tiempoDescansoMin ?? existing.tiempoDescansoMin,
@@ -542,6 +638,15 @@ export class ActivityPostController {
       location: activity.details.location,
       htmlLink: activity.htmlLink,
       source: activity.source,
+      recurrence: activity.recurrence,
+      repetition: activity.repetition
+        ? {
+            idFrecuencia: activity.repetition.idFrecuencia,
+            diasSemana: activity.repetition.diasSemana,
+            fechaInicio: activity.repetition.fechaInicio,
+            fechaFin: activity.repetition.fechaFin,
+          }
+        : undefined,
       updated: activity.updated,
       created: activity.created,
     };
@@ -747,6 +852,14 @@ export class ActivityPostController {
           transparency: activity.transparency,
           eventType: activity.eventType,
           recurrence: activity.recurrence,
+          repetition: activity.repetition
+            ? {
+                idFrecuencia: activity.repetition.idFrecuencia,
+                diasSemana: activity.repetition.diasSemana,
+                fechaInicio: activity.repetition.fechaInicio,
+                fechaFin: activity.repetition.fechaFin,
+              }
+            : undefined,
           status: activity.status,
           recurringEventId: activity.recurringEventId,
           originalStartTime: activity.originalStartTime,
@@ -1001,6 +1114,14 @@ export class ActivityPostController {
           transparency: activity.transparency,
           eventType: activity.eventType,
           recurrence: activity.recurrence,
+          repetition: activity.repetition
+            ? {
+                idFrecuencia: activity.repetition.idFrecuencia,
+                diasSemana: activity.repetition.diasSemana,
+                fechaInicio: activity.repetition.fechaInicio,
+                fechaFin: activity.repetition.fechaFin,
+              }
+            : undefined,
           status: activity.status,
           recurringEventId: activity.recurringEventId,
           originalStartTime: activity.originalStartTime,
@@ -1084,6 +1205,14 @@ export class ActivityPostController {
           transparency: activity.transparency,
           eventType: activity.eventType,
           recurrence: activity.recurrence,
+          repetition: activity.repetition
+            ? {
+                idFrecuencia: activity.repetition.idFrecuencia,
+                diasSemana: activity.repetition.diasSemana,
+                fechaInicio: activity.repetition.fechaInicio,
+                fechaFin: activity.repetition.fechaFin,
+              }
+            : undefined,
           status: activity.status,
           recurringEventId: activity.recurringEventId,
           originalStartTime: activity.originalStartTime,
