@@ -59,7 +59,7 @@ CREATE TABLE actividades (
     id_etiqueta INTEGER,
     
     -- ID del evento en Google Calendar (para sincronizacion)
-    google_event_id VARCHAR(255),
+    google_event_id TEXT,
     google_calendar_id VARCHAR(255) DEFAULT 'primary',
     --as
     -- Campos principales del evento (compatibles con Google Calendar)

@@ -250,6 +250,28 @@ export class MySqlActivityRepository implements IActivityRepository {
     return this.mapRowToActivity(result.rows[0]);
   }
 
+  async findByGoogleEventId(googleEventId: string): Promise<Activity | null> {
+    const result = await this.db.query(
+      `SELECT a.*, 
+              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
+              p.valor as prioridad_valor, p.color as prioridad_color,
+              r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
+       FROM actividades a
+       LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
+       LEFT JOIN prioridad p ON a.id = p.id_actividad
+       LEFT JOIN repeticiones r ON a.id = r.id_actividad
+       WHERE a.google_event_id = $1
+       LIMIT 1`,
+      [googleEventId]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return this.mapRowToActivity(result.rows[0]);
+  }
+
   async findByUserId(idUsuario: string): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT a.*, 

@@ -890,7 +890,10 @@ export class ActivityPostController {
         return;
       }
 
-      const activity = await this.searchActivityUseCase.activityById(id);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      const activity = isUuid
+        ? await this.searchActivityUseCase.activityById(id)
+        : await this.activityRepository.findByGoogleEventId(id);
       if (!activity) {
         res.status(404).json({
           success: false,
@@ -948,7 +951,10 @@ export class ActivityPostController {
         return;
       }
 
-      const existing = await this.searchActivityUseCase.activityById(id);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      const existing = isUuid
+        ? await this.searchActivityUseCase.activityById(id)
+        : await this.activityRepository.findByGoogleEventId(id);
       if (!existing) {
         res.status(404).json({
           success: false,
@@ -1008,7 +1014,10 @@ export class ActivityPostController {
         return;
       }
 
-      const existing = await this.searchActivityUseCase.activityById(id);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      const existing = isUuid
+        ? await this.searchActivityUseCase.activityById(id)
+        : await this.activityRepository.findByGoogleEventId(id);
       if (!existing) {
         res.status(404).json({
           success: false,

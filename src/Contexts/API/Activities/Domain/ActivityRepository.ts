@@ -6,6 +6,8 @@ export interface IActivityRepository {
 
   findById(id: string): Promise<Activity | null>;
 
+  findByGoogleEventId(googleEventId: string): Promise<Activity | null>;
+
   findByUserId(idUsuario: string): Promise<Activity[]>; // UUID (formerly number)
 
   findByUserIdAndDate(idUsuario: string, date: Date): Promise<Activity[]>; // UUID (formerly number)
