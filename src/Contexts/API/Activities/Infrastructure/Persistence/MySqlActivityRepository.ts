@@ -260,8 +260,8 @@ export class MySqlActivityRepository implements IActivityRepository {
     const result = await this.db.query(
       `SELECT ac.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-              p.valor as prioridad_valor, p.color as prioridad_color,
-          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color
+                p.valor as prioridad_valor, p.color as prioridad_color,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
        LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
@@ -281,8 +281,8 @@ export class MySqlActivityRepository implements IActivityRepository {
     const result = await this.db.query(
       `SELECT ac.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-              p.valor as prioridad_valor, p.color as prioridad_color,
-          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color
+                p.valor as prioridad_valor, p.color as prioridad_color,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
        LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
@@ -303,8 +303,8 @@ export class MySqlActivityRepository implements IActivityRepository {
     const result = await this.db.query(
       `SELECT ac.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-              p.valor as prioridad_valor, p.color as prioridad_color,
-          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color
+                p.valor as prioridad_valor, p.color as prioridad_color,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
        LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
@@ -324,7 +324,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       `SELECT ac.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
-              e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
        LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
@@ -342,8 +342,8 @@ export class MySqlActivityRepository implements IActivityRepository {
     const result = await this.db.query(
       `SELECT ac.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-              p.valor as prioridad_valor, p.color as prioridad_color,
-          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color
+                p.valor as prioridad_valor, p.color as prioridad_color,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
        LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
