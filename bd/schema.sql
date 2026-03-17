@@ -1,231 +1,124 @@
--- Habilita funciones criptograficas y utilidades como gen_random_uuid().
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
 
--- Limpia tablas auxiliares de integracion Google primero por dependencias.
-DROP TABLE IF EXISTS user_google_sync_state CASCADE;
-DROP TABLE IF EXISTS user_google_connections CASCADE;
--- Limpia tablas del dominio principal de actividades.
-DROP TABLE IF EXISTS prioridad CASCADE;
-DROP TABLE IF EXISTS repeticiones CASCADE;
-DROP TABLE IF EXISTS actividades_detalles CASCADE;
-DROP TABLE IF EXISTS actividades CASCADE;
-DROP TABLE IF EXISTS etiquetas CASCADE;
-DROP TABLE IF EXISTS ajustes_usuario CASCADE;
-DROP TABLE IF EXISTS frecuencia CASCADE;
-DROP TABLE IF EXISTS usuarios CASCADE;
--- Limpia tipos enumerados para recrearlos de forma consistente.
-DROP TYPE IF EXISTS frecuencia_enum;
-DROP TYPE IF EXISTS activity_source_enum;
-DROP TYPE IF EXISTS activity_status_enum;
-DROP TYPE IF EXISTS priority_value_enum;
-
--- Frecuencia funcional para actividades repetitivas (RF-03).
-CREATE TYPE frecuencia_enum AS ENUM ('diaria', 'semanal', 'mensual');
--- Valores de prioridad para actividades (RF-03).
-CREATE TYPE priority_value_enum AS ENUM ('baja', 'media', 'alta');
-
--- Usuarios del sistema: se registran/sincronizan al hacer login con Clerk.
--- FLUJO: Login con Clerk -> obtener clerk_user_id, correo y nombre desde Clerk -> guardar en tabla usuarios.
-CREATE TABLE usuarios (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    -- ID externo y unico de Clerk (obtenido durante login).
-    clerk_user_id VARCHAR(255) UNIQUE NOT NULL,
-    -- Correo obtenido del login Clerk (no editable desde UI del app).
-    correo VARCHAR(255) UNIQUE,
-    -- Nombre obtenido del login Clerk (no editable desde UI del app).
-    nombre VARCHAR(255),
-    -- Token de acceso a Google Calendar (se genera durante vinculacion OAuth).
-    token_google VARCHAR(2048),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE public.actividades (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  id_usuario uuid NOT NULL,
+  id_etiqueta integer,
+  google_event_id text,
+  google_calendar_id character varying DEFAULT 'primary'::character varying,
+  summary character varying NOT NULL,
+  status character varying DEFAULT 'confirmed'::character varying,
+  start_datetime timestamp with time zone,
+  end_datetime timestamp with time zone,
+  start_timezone character varying,
+  end_timezone character varying,
+  start_date date,
+  end_date date,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  event_created timestamp with time zone,
+  event_updated timestamp with time zone,
+  transparency character varying,
+  event_type character varying,
+  recurring_event_id character varying,
+  recurrence text[],
+  frecuencia character varying,
+  source character varying DEFAULT 'local'::character varying,
+  last_synced_at timestamp with time zone,
+  CONSTRAINT actividades_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_actividades_usuario FOREIGN KEY (id_usuario) REFERENCES public.usuarios(id),
+  CONSTRAINT fk_actividades_etiqueta FOREIGN KEY (id_etiqueta) REFERENCES public.etiquetas(id)
 );
-
-
--- Etiquetas visuales para organizar actividades por usuario.
-CREATE TABLE etiquetas (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    id_usuario UUID NOT NULL,
-    nombre VARCHAR(50) NOT NULL,
-    transparencia VARCHAR(15),
-    color VARCHAR(7),
-    CONSTRAINT fk_etiquetas_usuario
-        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
+CREATE TABLE public.actividades_detalles (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  id_actividad uuid NOT NULL,
+  description text,
+  location character varying,
+  html_link text,
+  ical_uid character varying,
+  organizer_email character varying,
+  organizer_display_name character varying,
+  creator_email character varying,
+  creator_display_name character varying,
+  recurrence ARRAY,
+  reminders_use_default boolean DEFAULT true,
+  reminders_overrides jsonb,
+  raw_payload jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT actividades_detalles_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_actividades_detalles_actividad FOREIGN KEY (id_actividad) REFERENCES public.actividades(id)
 );
-
--- Tabla principal de actividades (locales y sincronizadas desde Google).
-CREATE TABLE actividades (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    id_usuario UUID NOT NULL,
-    id_etiqueta INTEGER,
-    
-    -- ID del evento en Google Calendar (para sincronizacion)
-    google_event_id TEXT,
-    google_calendar_id VARCHAR(255) DEFAULT 'primary',
-    --as
-    -- Campos principales del evento (compatibles con Google Calendar)
-    summary VARCHAR(500) NOT NULL,
-    status VARCHAR(20) DEFAULT 'confirmed',
-    
-    -- Fechas de inicio y fin (Google Calendar format)
-    -- Para eventos con hora especifica usa start_datetime
-    start_datetime TIMESTAMPTZ,
-    end_datetime TIMESTAMPTZ,
-    start_timezone VARCHAR(100),
-    end_timezone VARCHAR(100),
-    
-    -- Para eventos de todo el dia usa start_date
-    start_date DATE,
-    end_date DATE,
-    
-    -- Metadatos del evento
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    event_created TIMESTAMPTZ,
-    event_updated TIMESTAMPTZ,
-    
-    -- Campos adicionales de Google Calendar
-    transparency VARCHAR(20),
-    event_type VARCHAR(50),
-    recurring_event_id VARCHAR(255),
-    
-    -- Source y sync
-    source VARCHAR(20) DEFAULT 'local',
-    last_synced_at TIMESTAMPTZ,
-    
-    CONSTRAINT fk_actividades_usuario
-        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
-    CONSTRAINT fk_actividades_etiqueta
-        FOREIGN KEY (id_etiqueta) REFERENCES etiquetas(id) ON DELETE SET NULL,
-    CONSTRAINT uq_actividades_google_event
-        UNIQUE (id_usuario, google_calendar_id, google_event_id)
+CREATE OR REPLACE VIEW public.actividades_completa AS
+SELECT 
+  a.*,
+  COALESCE(ad.recurrence, a.recurrence) AS recurrence
+FROM public.actividades a
+LEFT JOIN public.actividades_detalles ad ON a.id = ad.id_actividad;
+CREATE TABLE public.ajustes_usuario (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  id_usuario uuid NOT NULL,
+  ocupacion character varying,
+  hora_inicio integer,
+  hora_fin integer,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ajustes_usuario_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_ajustes_usuario FOREIGN KEY (id_usuario) REFERENCES public.usuarios(id)
 );
-
--- Indices para acelerar consultas
-CREATE INDEX idx_actividades_usuario ON actividades(id_usuario);
-CREATE INDEX idx_actividades_usuario_start ON actividades(id_usuario, start_datetime);
-CREATE INDEX idx_actividades_usuario_date ON actividades(id_usuario, start_date);
-CREATE INDEX idx_actividades_google_event ON actividades(id_usuario, google_event_id);
-CREATE INDEX idx_actividades_created ON actividades(created_at);
-CREATE INDEX idx_actividades_status ON actividades(status);
-
--- Prioridad asignada a cada actividad.
-CREATE TABLE prioridad (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    id_actividad UUID NOT NULL,
-    valor priority_value_enum NOT NULL,
-    color VARCHAR(7),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_prioridad_actividad
-        FOREIGN KEY (id_actividad) REFERENCES actividades(id) ON DELETE CASCADE
+CREATE TABLE public.etiquetas (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  id_usuario uuid NOT NULL,
+  nombre character varying NOT NULL,
+  color character varying,
+  CONSTRAINT etiquetas_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_etiquetas_usuario FOREIGN KEY (id_usuario) REFERENCES public.usuarios(id)
 );
-
-CREATE UNIQUE INDEX uq_prioridad_id_actividad
-    ON prioridad(id_actividad);
-
--- Detalles descriptivos de cada actividad.
-CREATE TABLE actividades_detalles (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    id_actividad UUID NOT NULL,
-    description TEXT,
-    location VARCHAR(500),
-    html_link TEXT,
-    ical_uid VARCHAR(255),
-    organizer_email VARCHAR(255),
-    organizer_display_name VARCHAR(255),
-    creator_email VARCHAR(255),
-    creator_display_name VARCHAR(255),
-    -- Recurrence rules (RFC5545)
-    recurrence TEXT[],
-    -- Reminders
-    reminders_use_default BOOLEAN DEFAULT true,
-    reminders_overrides JSONB,
-    -- Payload original opcional para auditoria/depuracion
-    raw_payload JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_actividades_detalles_actividad
-        FOREIGN KEY (id_actividad) REFERENCES actividades(id) ON DELETE CASCADE
+CREATE TABLE public.prioridad (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  id_actividad uuid NOT NULL,
+  valor USER-DEFINED NOT NULL,
+  color character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT prioridad_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_prioridad_actividad FOREIGN KEY (id_actividad) REFERENCES public.actividades(id)
 );
-
-CREATE UNIQUE INDEX uq_actividades_detalles_id_actividad
-    ON actividades_detalles(id_actividad);
-
--- Catalogo de frecuencias permitidas para repeticion.
-CREATE TABLE frecuencia (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    frecuencia frecuencia_enum NOT NULL
+CREATE TABLE public.user_google_connections (
+  id_usuario uuid NOT NULL,
+  google_email character varying,
+  google_account_sub character varying,
+  access_token text,
+  refresh_token text,
+  token_type character varying,
+  scope text,
+  expires_at timestamp with time zone,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_google_connections_pkey PRIMARY KEY (id_usuario),
+  CONSTRAINT fk_user_google_connections_usuario FOREIGN KEY (id_usuario) REFERENCES public.usuarios(id)
 );
-
--- Configuracion de repeticion por actividad.
-CREATE TABLE repeticiones (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    id_frecuencia INTEGER,
-    -- Ejemplo: MON,TUE,FRI cuando aplica frecuencia semanal.
-    dias_semana VARCHAR(25),
-    fecha_inicio TIMESTAMPTZ,
-    fecha_fin TIMESTAMPTZ,
-    id_actividad UUID NOT NULL,
-    -- Regla RFC5545 (RRULE) para compatibilidad con Google Calendar.
-    recurrence_rule TEXT,
-    CONSTRAINT fk_repeticiones_frecuencia
-        FOREIGN KEY (id_frecuencia) REFERENCES frecuencia(id) ON DELETE SET NULL,
-    CONSTRAINT fk_repeticiones_actividad
-        FOREIGN KEY (id_actividad) REFERENCES actividades(id) ON DELETE CASCADE
+CREATE TABLE public.user_google_sync_state (
+  id_usuario uuid NOT NULL,
+  google_calendar_id character varying NOT NULL DEFAULT 'primary'::character varying,
+  sync_token text,
+  last_synced_at timestamp with time zone,
+  last_successful_sync_at timestamp with time zone,
+  last_error text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_google_sync_state_pkey PRIMARY KEY (id_usuario),
+  CONSTRAINT fk_user_google_sync_state_usuario FOREIGN KEY (id_usuario) REFERENCES public.usuarios(id)
 );
-
--- Preferencias y configuracion del usuario (segundo formulario post-login).
--- FLUJO: Despues del login Clerk, el usuario completa este formulario UNA SOLA VEZ.
--- Solo puede editar: ocupacion. Las horas de suenno NO son editables desde UI.
-CREATE TABLE ajustes_usuario (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    id_usuario UUID NOT NULL,
-    -- Ocupacion del usuario (ingresada por el usuario en formulario post-login).
-    ocupacion VARCHAR(50),
-    -- Hora de inicio de suenno (no modificable desde UI, system-managed).
-    -- Ejemplo: 22 (10 PM) - fuera de este horario el sistema puede sugerir actividades.
-    hora_inicio INTEGER,
-    -- Hora de fin de suenno (no modificable desde UI, system-managed).
-    -- Ejemplo: 7 (7 AM) - fuera de este horario el sistema puede sugerir actividades.
-    hora_fin INTEGER,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_ajustes_usuario
-        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
+CREATE TABLE public.usuarios (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  clerk_user_id character varying NOT NULL UNIQUE,
+  correo character varying UNIQUE,
+  nombre character varying,
+  token_google character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT usuarios_pkey PRIMARY KEY (id)
 );
-
--- Garantiza un solo registro de ajustes por usuario.
-CREATE UNIQUE INDEX uq_ajustes_usuario_id_usuario
-    ON ajustes_usuario(id_usuario);
-
--- Conexion OAuth por usuario para Google Calendar.
-CREATE TABLE user_google_connections (
-    id_usuario UUID PRIMARY KEY,
-    google_email VARCHAR(255),
-    google_account_sub VARCHAR(255),
-    access_token TEXT,
-    refresh_token TEXT,
-    token_type VARCHAR(50),
-    scope TEXT,
-    expires_at TIMESTAMPTZ,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_user_google_connections_usuario
-        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
-);
-
--- Estado de sincronizacion incremental de Google Calendar por usuario.
-CREATE TABLE user_google_sync_state (
-    id_usuario UUID PRIMARY KEY,
-    google_calendar_id VARCHAR(255) NOT NULL DEFAULT 'primary',
-    sync_token TEXT,
-    last_synced_at TIMESTAMPTZ,
-    last_successful_sync_at TIMESTAMPTZ,
-    last_error TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_user_google_sync_state_usuario
-        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
-);
-

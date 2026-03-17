@@ -752,14 +752,6 @@ export class ActivityPostController {
       eventType: activity.eventType,
       source: activity.source,
       recurrence: activity.recurrence ?? null,
-      repetition: activity.repetition
-        ? {
-            idFrecuencia: activity.repetition.idFrecuencia,
-            diasSemana: activity.repetition.diasSemana,
-            fechaInicio: activity.repetition.fechaInicio,
-            fechaFin: activity.repetition.fechaFin,
-          }
-        : null,
       recurringEventId: activity.recurringEventId,
       originalStartTime: activity.originalStartTime,
       reminders: activity.reminders ?? null,

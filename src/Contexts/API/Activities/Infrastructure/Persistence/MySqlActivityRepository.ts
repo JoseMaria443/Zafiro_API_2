@@ -3,7 +3,6 @@ import type { IActivityRepository } from '../../Domain/ActivityRepository.js';
 import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 import { ActivityDetails } from '../../Domain/ActivityDetails.js';
 import { ActivityPriority, PriorityLevel } from '../../Domain/ActivityPriority.js';
-import { Repetition } from '../../Domain/Repetition.js';
 import type { EventDateTime, EventActor, EventReminders } from '../../Domain/Activity.js';
 
 export interface GoogleCalendarEventInput {
@@ -18,6 +17,7 @@ export interface GoogleCalendarEventInput {
   organizerEmail?: string;
   recurrence?: string[];
   reminders?: EventReminders;
+  frecuencia?: 'diaria' | 'semanal' | 'mensual';
   start?: EventDateTime;
   end?: EventDateTime;
   created?: string;
@@ -27,6 +27,48 @@ export interface GoogleCalendarEventInput {
 
 export class MySqlActivityRepository implements IActivityRepository {
   private db = PostgresConnection.getInstance();
+
+  private normalizeFrecuencia(value?: string): 'diaria' | 'semanal' | 'mensual' | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'diaria' || normalized === 'daily') {
+      return 'diaria';
+    }
+
+    if (normalized === 'semanal' || normalized === 'weekly') {
+      return 'semanal';
+    }
+
+    if (normalized === 'mensual' || normalized === 'monthly') {
+      return 'mensual';
+    }
+
+    return undefined;
+  }
+
+  private parseFrecuenciaFromRecurrence(recurrence?: string[]): 'diaria' | 'semanal' | 'mensual' | undefined {
+    if (!Array.isArray(recurrence) || recurrence.length === 0) {
+      return undefined;
+    }
+
+    const joined = recurrence.join(';').toUpperCase();
+    if (joined.includes('FREQ=DAILY')) {
+      return 'diaria';
+    }
+
+    if (joined.includes('FREQ=WEEKLY')) {
+      return 'semanal';
+    }
+
+    if (joined.includes('FREQ=MONTHLY')) {
+      return 'mensual';
+    }
+
+    return undefined;
+  }
 
   private toDbPriorityValue(value: PriorityLevel): 'baja' | 'media' | 'alta' {
     if (value === PriorityLevel.HIGH || value === PriorityLevel.CRITICAL) {
@@ -92,13 +134,12 @@ export class MySqlActivityRepository implements IActivityRepository {
          organizer_display_name,
          creator_email,
          creator_display_name,
-         recurrence,
          reminders_use_default,
          reminders_overrides,
          raw_payload,
          updated_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
        ON CONFLICT (id_actividad) DO UPDATE
        SET description = EXCLUDED.description,
            location = EXCLUDED.location,
@@ -107,7 +148,6 @@ export class MySqlActivityRepository implements IActivityRepository {
            organizer_display_name = EXCLUDED.organizer_display_name,
            creator_email = EXCLUDED.creator_email,
            creator_display_name = EXCLUDED.creator_display_name,
-           recurrence = EXCLUDED.recurrence,
            reminders_use_default = EXCLUDED.reminders_use_default,
            reminders_overrides = EXCLUDED.reminders_overrides,
            raw_payload = EXCLUDED.raw_payload,
@@ -121,7 +161,6 @@ export class MySqlActivityRepository implements IActivityRepository {
         activity.organizer?.displayName || null,
         activity.creator?.email || null,
         activity.creator?.displayName || null,
-        activity.recurrence || null,
         activity.reminders?.useDefault ?? true,
         activity.reminders?.overrides ? JSON.stringify(activity.reminders.overrides) : null,
         null,
@@ -140,26 +179,6 @@ export class MySqlActivityRepository implements IActivityRepository {
       `INSERT INTO prioridad (id_actividad, valor, color)
        VALUES ($1, $2, $3)`,
       [activityId, this.toDbPriorityValue(activity.priority.valor), activity.priority.color]
-    );
-  }
-
-  private async replaceActivityRepetition(client: any, activityId: string, activity: Activity): Promise<void> {
-    await client.query('DELETE FROM repeticiones WHERE id_actividad = $1', [activityId]);
-
-    if (!activity.repetition) {
-      return;
-    }
-
-    await client.query(
-      `INSERT INTO repeticiones (id_frecuencia, dias_semana, fecha_inicio, fecha_fin, id_actividad)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [
-        activity.repetition.idFrecuencia,
-        activity.repetition.diasSemana,
-        activity.repetition.fechaInicio,
-        activity.repetition.fechaFin,
-        activityId,
-      ]
     );
   }
 
@@ -190,10 +209,12 @@ export class MySqlActivityRepository implements IActivityRepository {
           transparency,
           event_type,
           recurring_event_id,
+          recurrence,
+          frecuencia,
           source,
           last_synced_at
          ) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) 
          RETURNING id`,
         [
           activity.id,
@@ -214,6 +235,8 @@ export class MySqlActivityRepository implements IActivityRepository {
           activity.transparency || null,
           activity.eventType || null,
           activity.recurringEventId || null,
+          activity.recurrence || null,
+          this.normalizeFrecuencia(activity.frecuencia),
           activity.source || 'local',
           activity.source === 'google' ? new Date().toISOString() : null
         ]
@@ -223,7 +246,6 @@ export class MySqlActivityRepository implements IActivityRepository {
       if (activityId) {
         await this.upsertActivityDetails(client, activityId, activity);
         await this.replaceActivityPriority(client, activityId, activity);
-        await this.replaceActivityRepetition(client, activityId, activity);
       }
 
       await client.query('COMMIT');
@@ -236,17 +258,15 @@ export class MySqlActivityRepository implements IActivityRepository {
 
   async findById(id: string): Promise<Activity | null> {
     const result = await this.db.query(
-      `SELECT a.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
+      `SELECT ac.*, 
+              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
-          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color,
-              r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
-       FROM actividades a
-       LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
-       LEFT JOIN prioridad p ON a.id = p.id_actividad
-        LEFT JOIN etiquetas e ON a.id_etiqueta = e.id
-       LEFT JOIN repeticiones r ON a.id = r.id_actividad
-       WHERE a.id = $1`,
+          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color
+       FROM actividades_completa ac
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
+       LEFT JOIN prioridad p ON ac.id = p.id_actividad
+        LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       WHERE ac.id = $1`,
       [id]
     );
 
@@ -259,17 +279,15 @@ export class MySqlActivityRepository implements IActivityRepository {
 
   async findByGoogleEventId(googleEventId: string): Promise<Activity | null> {
     const result = await this.db.query(
-      `SELECT a.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
+      `SELECT ac.*, 
+              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
-          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color,
-              r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
-       FROM actividades a
-       LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
-       LEFT JOIN prioridad p ON a.id = p.id_actividad
-        LEFT JOIN etiquetas e ON a.id_etiqueta = e.id
-       LEFT JOIN repeticiones r ON a.id = r.id_actividad
-       WHERE a.google_event_id = $1
+          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color
+       FROM actividades_completa ac
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
+       LEFT JOIN prioridad p ON ac.id = p.id_actividad
+        LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       WHERE ac.google_event_id = $1
        LIMIT 1`,
       [googleEventId]
     );
@@ -283,18 +301,16 @@ export class MySqlActivityRepository implements IActivityRepository {
 
   async findByUserId(idUsuario: string): Promise<Activity[]> {
     const result = await this.db.query(
-      `SELECT a.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
+      `SELECT ac.*, 
+              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
-          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color,
-              r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
-       FROM actividades a
-       LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
-       LEFT JOIN prioridad p ON a.id = p.id_actividad
-        LEFT JOIN etiquetas e ON a.id_etiqueta = e.id
-       LEFT JOIN repeticiones r ON a.id = r.id_actividad
-       WHERE a.id_usuario = $1
-       ORDER BY a.event_created DESC`,
+          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color
+       FROM actividades_completa ac
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
+       LEFT JOIN prioridad p ON ac.id = p.id_actividad
+        LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       WHERE ac.id_usuario = $1
+       ORDER BY ac.event_created DESC`,
       [idUsuario]
     );
 
@@ -305,19 +321,17 @@ export class MySqlActivityRepository implements IActivityRepository {
     const targetDate = date.toISOString().split('T')[0];
     
     const result = await this.db.query(
-      `SELECT a.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
+      `SELECT ac.*, 
+              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
-              e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color,
-              r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
-       FROM actividades a
-       LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
-       LEFT JOIN prioridad p ON a.id = p.id_actividad
-       LEFT JOIN etiquetas e ON a.id_etiqueta = e.id
-       LEFT JOIN repeticiones r ON a.id = r.id_actividad
-       WHERE a.id_usuario = $1 
-         AND (a.start_date = $2 OR DATE(a.start_datetime) = $2)
-       ORDER BY a.start_datetime DESC`,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color
+       FROM actividades_completa ac
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
+       LEFT JOIN prioridad p ON ac.id = p.id_actividad
+       LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       WHERE ac.id_usuario = $1 
+         AND (ac.start_date = $2 OR DATE(ac.start_datetime) = $2)
+       ORDER BY ac.start_datetime DESC`,
       [idUsuario, targetDate]
     );
 
@@ -326,18 +340,16 @@ export class MySqlActivityRepository implements IActivityRepository {
 
   async findByTagId(idEtiqueta: number): Promise<Activity[]> {
     const result = await this.db.query(
-      `SELECT a.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
+      `SELECT ac.*, 
+              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
-          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color,
-              r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
-       FROM actividades a
-       LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
-       LEFT JOIN prioridad p ON a.id = p.id_actividad
-        LEFT JOIN etiquetas e ON a.id_etiqueta = e.id
-       LEFT JOIN repeticiones r ON a.id = r.id_actividad
-       WHERE a.id_etiqueta = $1
-       ORDER BY a.event_created DESC`,
+          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color
+       FROM actividades_completa ac
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
+       LEFT JOIN prioridad p ON ac.id = p.id_actividad
+        LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       WHERE ac.id_etiqueta = $1
+       ORDER BY ac.event_created DESC`,
       [idEtiqueta]
     );
 
@@ -366,8 +378,10 @@ export class MySqlActivityRepository implements IActivityRepository {
              transparency = $12,
              event_type = $13,
              recurring_event_id = $14,
+             recurrence = $15,
+             frecuencia = $16,
              updated_at = NOW()
-           WHERE id = $15 AND id_usuario = $16`,
+           WHERE id = $17 AND id_usuario = $18`,
         [
           activity.idEtiqueta || null,
           activity.googleEventId || null,
@@ -383,6 +397,8 @@ export class MySqlActivityRepository implements IActivityRepository {
           activity.transparency || null,
           activity.eventType || null,
           activity.recurringEventId || null,
+          activity.recurrence || null,
+          this.normalizeFrecuencia(activity.frecuencia),
           activity.id,
           activity.idUsuario,
         ]
@@ -390,7 +406,6 @@ export class MySqlActivityRepository implements IActivityRepository {
 
       await this.upsertActivityDetails(client, activity.id, activity);
       await this.replaceActivityPriority(client, activity.id, activity);
-      await this.replaceActivityRepetition(client, activity.id, activity);
 
       await client.query('COMMIT');
     } catch (error) {
@@ -415,6 +430,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     const summary = event.summary?.trim() || 'Evento sin título';
     const status = this.normalizeStatus(event.status);
     const transparency = event.transparency === 'transparent' ? 'transparent' : 'opaque';
+    const frecuencia = this.normalizeFrecuencia(event.frecuencia) ?? this.parseFrecuenciaFromRecurrence(event.recurrence);
     const created = event.created || new Date().toISOString();
     const updated = event.updated || created;
     const calendarId = event.calendarId || 'primary';
@@ -436,6 +452,8 @@ export class MySqlActivityRepository implements IActivityRepository {
          event_created,
          event_updated,
          transparency,
+         recurrence,
+         frecuencia,
          last_synced_at
        ) VALUES (
          $1,
@@ -453,6 +471,8 @@ export class MySqlActivityRepository implements IActivityRepository {
          $12,
          $13,
          $14,
+         $15,
+         $16,
          NOW()
        )
        ON CONFLICT (id_usuario, google_calendar_id, google_event_id)
@@ -469,6 +489,8 @@ export class MySqlActivityRepository implements IActivityRepository {
          event_created = EXCLUDED.event_created,
          event_updated = EXCLUDED.event_updated,
          transparency = EXCLUDED.transparency,
+         recurrence = EXCLUDED.recurrence,
+         frecuencia = EXCLUDED.frecuencia,
          last_synced_at = NOW()
        RETURNING id`,
       [
@@ -486,6 +508,8 @@ export class MySqlActivityRepository implements IActivityRepository {
         created,
         updated,
         transparency,
+        event.recurrence || null,
+        frecuencia || null,
       ]
     );
 
@@ -501,18 +525,16 @@ export class MySqlActivityRepository implements IActivityRepository {
          location,
          html_link,
          organizer_email,
-         recurrence,
          reminders_use_default,
          reminders_overrides,
          raw_payload
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (id_actividad)
        DO UPDATE SET
          description = EXCLUDED.description,
          location = EXCLUDED.location,
          html_link = EXCLUDED.html_link,
          organizer_email = EXCLUDED.organizer_email,
-         recurrence = EXCLUDED.recurrence,
          reminders_use_default = EXCLUDED.reminders_use_default,
          reminders_overrides = EXCLUDED.reminders_overrides,
          raw_payload = EXCLUDED.raw_payload`,
@@ -522,7 +544,6 @@ export class MySqlActivityRepository implements IActivityRepository {
         event.location || null,
         event.htmlLink || null,
         event.organizerEmail || null,
-        event.recurrence || null,
         event.reminders?.useDefault ?? true,
         event.reminders?.overrides ? JSON.stringify(event.reminders.overrides) : null,
         event.rawPayload ? JSON.stringify(event.rawPayload) : null,
@@ -619,18 +640,6 @@ export class MySqlActivityRepository implements IActivityRepository {
       );
     }
 
-    let repetition: Repetition | undefined;
-    if (row.id_frecuencia) {
-      repetition = new Repetition(
-        row.id,
-        row.id_usuario,
-        row.id_frecuencia,
-        row.dias_semana || 'MON',
-        new Date(row.fecha_inicio),
-        new Date(row.fecha_fin)
-      );
-    }
-
     // Crear fechas de inicio y fin
     const now = new Date();
     const startDateTime = toIsoString(row.start_datetime);
@@ -711,7 +720,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       etiqueta,
       prioridad,
       priority,
-      repetition,
+      undefined,
       // RF-03 Fields
       undefined,
       undefined,
@@ -719,7 +728,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       undefined,
       row.source || 'local',
       row.google_event_id || undefined,
-      undefined
+      row.frecuencia || undefined
     );
   }
 }

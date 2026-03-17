@@ -559,14 +559,6 @@ export class AuthController {
             description: item.description ?? localActivity?.details?.description ?? null,
             location: item.location ?? localActivity?.details?.location ?? null,
             recurrence: item.recurrence ?? localActivity?.recurrence ?? null,
-            repetition: localActivity?.repetition
-              ? {
-                  idFrecuencia: localActivity.repetition.idFrecuencia,
-                  diasSemana: localActivity.repetition.diasSemana,
-                  fechaInicio: localActivity.repetition.fechaInicio,
-                  fechaFin: localActivity.repetition.fechaFin,
-                }
-              : null,
             reminders: item.reminders ?? localActivity?.reminders ?? null,
             etiqueta:
               localActivity?.etiqueta ??
@@ -873,6 +865,12 @@ export class AuthController {
     let nextPageToken: string | undefined;
     let nextSyncToken: string | undefined;
     let imported = 0;
+    let latestReminderSettings:
+      | {
+          useDefault: boolean;
+          overrides?: Array<{ method: 'email' | 'popup'; minutes: number }>;
+        }
+      | undefined;
 
     try {
       do {
@@ -952,6 +950,24 @@ export class AuthController {
             updated: item.updated,
             rawPayload: item,
           });
+
+          if (item.reminders) {
+            latestReminderSettings = {
+              useDefault: item.reminders.useDefault ?? true,
+              overrides: Array.isArray(item.reminders.overrides)
+                ? item.reminders.overrides
+                    .filter((override) =>
+                      (override.method === 'email' || override.method === 'popup') &&
+                      typeof override.minutes === 'number'
+                    )
+                    .map((override) => ({
+                      method: override.method as 'email' | 'popup',
+                      minutes: override.minutes as number,
+                    }))
+                : undefined,
+            };
+          }
+
           imported += 1;
         }
 
@@ -960,6 +976,10 @@ export class AuthController {
           nextSyncToken = payload.nextSyncToken;
         }
       } while (nextPageToken);
+
+      if (latestReminderSettings) {
+        await this.userRepository.saveGoogleReminderSettings(idUsuario, latestReminderSettings);
+      }
 
       await this.userRepository.upsertGoogleSyncState(idUsuario, calendarId, nextSyncToken, undefined);
 

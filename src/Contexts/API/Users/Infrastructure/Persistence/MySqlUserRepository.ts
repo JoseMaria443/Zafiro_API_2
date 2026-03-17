@@ -33,6 +33,14 @@ export interface GoogleSyncStateRecord {
   lastError?: string;
 }
 
+export interface GoogleReminderSettings {
+  useDefault: boolean;
+  overrides?: Array<{
+    method: 'email' | 'popup';
+    minutes: number;
+  }>;
+}
+
 export class MySqlUserRepository implements IUserRepository {
   private db = PostgresConnection.getInstance();
 
@@ -353,6 +361,24 @@ export class MySqlUserRepository implements IUserRepository {
            updated_at = NOW()
        WHERE id = $1`,
       [idUsuario]
+    );
+  }
+
+  async saveGoogleReminderSettings(
+    idUsuario: string,
+    reminders: GoogleReminderSettings
+  ): Promise<void> {
+    await this.db.query(
+      `UPDATE usuarios
+       SET google_reminders_use_default = $1,
+           google_reminders_overrides = $2,
+           updated_at = NOW()
+       WHERE id = $3`,
+      [
+        reminders.useDefault,
+        reminders.overrides ? JSON.stringify(reminders.overrides) : null,
+        idUsuario,
+      ]
     );
   }
 }
