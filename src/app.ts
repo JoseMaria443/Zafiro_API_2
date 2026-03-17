@@ -255,6 +255,12 @@ export const createApp = (): Express => {
     });
   });
 
+  app.get('/api/tags/me', (req: Request, res: Response, next: NextFunction) => {
+    runProtected(req, res, () => {
+      void tagController.getMyTags(req, res);
+    });
+  });
+
   app.get('/api/tags/:id', (req: Request, res: Response, next: NextFunction) => {
     runProtected(req, res, () => {
       void tagController.getTagById(req, res);
