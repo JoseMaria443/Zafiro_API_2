@@ -177,12 +177,6 @@ export const createApp = (): Express => {
     });
   });
 
-  app.put('/api/activities/:id', (req: Request, res: Response) => {
-    runProtected(req, res, () => {
-      void activityController.update(req, res);
-    });
-  });
-
   app.patch('/api/activities/:id', (req: Request, res: Response) => {
     runProtected(req, res, () => {
       void activityController.update(req, res);
@@ -211,7 +205,7 @@ export const createApp = (): Express => {
     });
   });
 
-  app.put('/api/users/:id', (req: Request, res: Response, next: NextFunction) => {
+  app.patch('/api/users/:id', (req: Request, res: Response, next: NextFunction) => {
     runProtected(req, res, () => {
       void authController.update(req, res);
     });
@@ -236,7 +230,7 @@ export const createApp = (): Express => {
     });
   });
 
-  app.put('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
+  app.patch('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
     runProtected(req, res, () => {
       void userSettingsController.update(req, res);
     });
@@ -267,7 +261,7 @@ export const createApp = (): Express => {
     });
   });
 
-  app.put('/api/tags/:id', (req: Request, res: Response, next: NextFunction) => {
+  app.patch('/api/tags/:id', (req: Request, res: Response, next: NextFunction) => {
     runProtected(req, res, () => {
       void tagController.update(req, res);
     });
@@ -304,7 +298,7 @@ export const createApp = (): Express => {
     });
   });
 
-  app.put('/api/priorities/:id', (req: Request, res: Response, next: NextFunction) => {
+  app.patch('/api/priorities/:id', (req: Request, res: Response, next: NextFunction) => {
     runProtected(req, res, () => {
       void priorityController.update(req, res);
     });
