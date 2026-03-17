@@ -188,11 +188,9 @@ export class MySqlActivityRepository implements IActivityRepository {
           event_type,
           recurring_event_id,
           source,
-          last_synced_at,
-          tiempo_descanso_min, 
-          tiempo_muerto_min
+          last_synced_at
          ) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) 
          RETURNING id`,
         [
           activity.id,
@@ -214,9 +212,7 @@ export class MySqlActivityRepository implements IActivityRepository {
           activity.eventType || null,
           activity.recurringEventId || null,
           activity.source || 'local',
-          activity.source === 'google' ? new Date().toISOString() : null,
-          activity.tiempoDescansoMin || 0,
-          activity.tiempoMuertoMin || 0
+          activity.source === 'google' ? new Date().toISOString() : null
         ]
       );
       const activityId = activityResult.rows[0]?.id;
@@ -354,13 +350,11 @@ export class MySqlActivityRepository implements IActivityRepository {
              event_updated = $9,
              source = $10,
              last_synced_at = $11,
-             tiempo_descanso_min = $12,
-             tiempo_muerto_min = $13,
-             transparency = $14,
-             event_type = $15,
-             recurring_event_id = $16,
+             transparency = $12,
+             event_type = $13,
+             recurring_event_id = $14,
              updated_at = NOW()
-         WHERE id = $17 AND id_usuario = $18`,
+           WHERE id = $15 AND id_usuario = $16`,
         [
           activity.idEtiqueta || null,
           activity.googleEventId || null,
@@ -373,8 +367,6 @@ export class MySqlActivityRepository implements IActivityRepository {
           activity.updated || new Date().toISOString(),
           activity.source || 'local',
           activity.source === 'google' ? new Date().toISOString() : null,
-          activity.tiempoDescansoMin || 0,
-          activity.tiempoMuertoMin || 0,
           activity.transparency || null,
           activity.eventType || null,
           activity.recurringEventId || null,
@@ -671,8 +663,6 @@ export class MySqlActivityRepository implements IActivityRepository {
       undefined,
       undefined,
       undefined,
-      row.tiempo_descanso_min || undefined,
-      row.tiempo_muerto_min || undefined,
       row.source || 'local',
       row.google_event_id || undefined,
       undefined

@@ -57,8 +57,6 @@ export class Activity {
   readonly fechaFin?: Date; // End date (format: YYYY-MM-DD)
   readonly horaInicio?: number; // Start hour (0-23)
   readonly horaFin?: number; // End hour (0-23)
-  readonly tiempoDescansoMin?: number; // Rest time in minutes
-  readonly tiempoMuertoMin?: number; // Dead time in minutes
   readonly source?: 'local' | 'google'; // Source of the activity
   readonly googleEventId?: string; // Google Calendar event ID
   readonly frecuencia?: 'diaria' | 'semanal' | 'mensual' | 'anual'; // Frequency
@@ -96,8 +94,6 @@ export class Activity {
     fechaFin?: Date,
     horaInicio?: number,
     horaFin?: number,
-    tiempoDescansoMin?: number,
-    tiempoMuertoMin?: number,
     source?: 'local' | 'google',
     googleEventId?: string,
     frecuencia?: 'diaria' | 'semanal' | 'mensual' | 'anual'
@@ -147,14 +143,6 @@ export class Activity {
       throw new Error('La hora de inicio debe ser anterior a la hora de fin');
     }
 
-    if (tiempoDescansoMin !== undefined && tiempoDescansoMin < 0) {
-      throw new Error('El tiempo de descanso no puede ser negativo');
-    }
-
-    if (tiempoMuertoMin !== undefined && tiempoMuertoMin < 0) {
-      throw new Error('El tiempo muerto no puede ser negativo');
-    }
-
     this.id = id;
     this.idUsuario = idUsuario;
     this.idEtiqueta = idEtiqueta;
@@ -187,8 +175,6 @@ export class Activity {
     this.fechaFin = fechaFin;
     this.horaInicio = horaInicio;
     this.horaFin = horaFin;
-    this.tiempoDescansoMin = tiempoDescansoMin;
-    this.tiempoMuertoMin = tiempoMuertoMin;
     this.source = source;
     this.googleEventId = googleEventId;
     this.frecuencia = frecuencia;

@@ -48,8 +48,6 @@ export interface CreateActivityRequest {
   // RF-03 Fields
   horaInicio?: number;
   horaFin?: number;
-  tiempoDescansoMin?: number;
-  tiempoMuertoMin?: number;
   source?: 'local' | 'google';
   googleEventId?: string;
   frecuencia?: 'diaria' | 'semanal' | 'mensual' | 'anual';
@@ -166,8 +164,6 @@ export class CreateActivityUseCase {
       request.fechaFin,
       request.horaInicio,
       request.horaFin,
-      request.tiempoDescansoMin,
-      request.tiempoMuertoMin,
       request.source || 'local',
       request.googleEventId,
       request.frecuencia

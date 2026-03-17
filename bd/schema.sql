@@ -88,10 +88,6 @@ CREATE TABLE actividades (
     event_type VARCHAR(50),
     recurring_event_id VARCHAR(255),
     
-    -- RF-03: tiempo de descanso y tiempo muerto (traslados, etc.)
-    tiempo_descanso_min INTEGER DEFAULT 0,
-    tiempo_muerto_min INTEGER DEFAULT 0,
-    
     -- Source y sync
     source VARCHAR(20) DEFAULT 'local',
     last_synced_at TIMESTAMPTZ,

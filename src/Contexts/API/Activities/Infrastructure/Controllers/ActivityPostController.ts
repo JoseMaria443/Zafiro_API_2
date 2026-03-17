@@ -674,8 +674,6 @@ export class ActivityPostController {
       repetitionUpdate.fechaFin,
       bodyParams.horaInicio ?? existing.horaInicio ?? this.parseHour(start),
       bodyParams.horaFin ?? existing.horaFin ?? this.parseHour(end),
-      bodyParams.tiempoDescansoMin ?? existing.tiempoDescansoMin,
-      bodyParams.tiempoMuertoMin ?? existing.tiempoMuertoMin,
       bodyParams.source ?? existing.source,
       existing.googleEventId,
       bodyParams.frecuencia ?? existing.frecuencia
@@ -786,8 +784,6 @@ export class ActivityPostController {
         // RF-03 Fields
         horaInicio,
         horaFin,
-        tiempoDescansoMin,
-        tiempoMuertoMin,
         source,
         googleEventId,
         frecuencia,
@@ -883,8 +879,6 @@ export class ActivityPostController {
         // RF-03 Fields
         horaInicio: bodyParams.horaInicio ?? this.parseHour(startDate),
         horaFin: bodyParams.horaFin ?? this.parseHour(endDate),
-        tiempoDescansoMin: bodyParams.tiempoDescansoMin,
-        tiempoMuertoMin: bodyParams.tiempoMuertoMin,
         source: bodyParams.source ?? 'local',
         googleEventId: bodyParams.googleEventId ?? (typeof bodyParams.id === 'string' ? bodyParams.id : undefined),
         frecuencia: bodyParams.frecuencia,
