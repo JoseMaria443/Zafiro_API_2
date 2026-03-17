@@ -155,23 +155,15 @@ export class ActivityPostController {
     }
 
     const normalized = value.trim().toLowerCase();
-    if (normalized === 'libre' || normalized === 'transparent') {
+    if (normalized === 'transparent') {
       return 'transparent';
     }
 
-    if (normalized === 'ocupado' || normalized === 'opaque') {
+    if (normalized === 'opaque') {
       return 'opaque';
     }
 
     return undefined;
-  }
-
-  private toClientTransparency(value?: 'transparent' | 'opaque'): 'ocupado' | 'libre' {
-    if (value === 'transparent') {
-      return 'libre';
-    }
-
-    return 'ocupado';
   }
 
   private buildGoogleRecurrence(bodyParams: Record<string, any>): string[] | undefined {
@@ -756,7 +748,7 @@ export class ActivityPostController {
       location: activity.details.location ?? null,
       iCalUID: activity.iCalUID,
       sequence: activity.sequence,
-      transparency: this.toClientTransparency(activity.transparency),
+      transparency: activity.transparency ?? 'opaque',
       eventType: activity.eventType,
       source: activity.source,
       recurrence: activity.recurrence ?? null,

@@ -552,10 +552,10 @@ export class AuthController {
             ...item,
             transparency:
               item.transparency === 'transparent'
-                ? 'libre'
+                ? 'transparent'
                 : localActivity?.transparency === 'transparent'
-                  ? 'libre'
-                  : 'ocupado',
+                  ? 'transparent'
+                  : 'opaque',
             description: item.description ?? localActivity?.details?.description ?? null,
             location: item.location ?? localActivity?.details?.location ?? null,
             recurrence: item.recurrence ?? localActivity?.recurrence ?? null,
