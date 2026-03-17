@@ -7,10 +7,10 @@ export class MySqlTagRepository implements ITagRepository {
 
   async save(tag: Tag): Promise<Tag> {
     const result = await this.db.query(
-      `INSERT INTO etiquetas (id_usuario, nombre, color, transparencia)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO etiquetas (id_usuario, nombre, color)
+       VALUES ($1, $2, $3)
        RETURNING *`,
-      [tag.idUsuario, tag.nombre, tag.color, null]
+      [tag.idUsuario, tag.nombre, tag.color]
     );
 
     const row = result.rows[0];
