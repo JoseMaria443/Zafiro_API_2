@@ -11,10 +11,13 @@ export interface GoogleCalendarEventInput {
   calendarId: string;
   status?: string;
   summary?: string;
+  transparency?: 'transparent' | 'opaque';
   description?: string;
   location?: string;
   htmlLink?: string;
   organizerEmail?: string;
+  recurrence?: string[];
+  reminders?: EventReminders;
   start?: EventDateTime;
   end?: EventDateTime;
   created?: string;
@@ -401,6 +404,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     const isAllDay = Boolean(event.start?.date && !event.start?.dateTime);
     const summary = event.summary?.trim() || 'Evento sin título';
     const status = this.normalizeStatus(event.status);
+    const transparency = event.transparency === 'transparent' ? 'transparent' : 'opaque';
     const created = event.created || new Date().toISOString();
     const updated = event.updated || created;
     const calendarId = event.calendarId || 'primary';
@@ -421,6 +425,7 @@ export class MySqlActivityRepository implements IActivityRepository {
          end_timezone,
          event_created,
          event_updated,
+         transparency,
          last_synced_at
        ) VALUES (
          $1,
@@ -437,6 +442,7 @@ export class MySqlActivityRepository implements IActivityRepository {
          $11,
          $12,
          $13,
+         $14,
          NOW()
        )
        ON CONFLICT (id_usuario, google_calendar_id, google_event_id)
@@ -452,6 +458,7 @@ export class MySqlActivityRepository implements IActivityRepository {
          end_timezone = EXCLUDED.end_timezone,
          event_created = EXCLUDED.event_created,
          event_updated = EXCLUDED.event_updated,
+         transparency = EXCLUDED.transparency,
          last_synced_at = NOW()
        RETURNING id`,
       [
@@ -468,6 +475,7 @@ export class MySqlActivityRepository implements IActivityRepository {
         end.timeZone,
         created,
         updated,
+        transparency,
       ]
     );
 
@@ -483,14 +491,20 @@ export class MySqlActivityRepository implements IActivityRepository {
          location,
          html_link,
          organizer_email,
+         recurrence,
+         reminders_use_default,
+         reminders_overrides,
          raw_payload
-       ) VALUES ($1, $2, $3, $4, $5, $6)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (id_actividad)
        DO UPDATE SET
          description = EXCLUDED.description,
          location = EXCLUDED.location,
          html_link = EXCLUDED.html_link,
          organizer_email = EXCLUDED.organizer_email,
+         recurrence = EXCLUDED.recurrence,
+         reminders_use_default = EXCLUDED.reminders_use_default,
+         reminders_overrides = EXCLUDED.reminders_overrides,
          raw_payload = EXCLUDED.raw_payload`,
       [
         activityId,
@@ -498,6 +512,9 @@ export class MySqlActivityRepository implements IActivityRepository {
         event.location || null,
         event.htmlLink || null,
         event.organizerEmail || null,
+        event.recurrence || null,
+        event.reminders?.useDefault ?? true,
+        event.reminders?.overrides ? JSON.stringify(event.reminders.overrides) : null,
         event.rawPayload ? JSON.stringify(event.rawPayload) : null,
       ]
     );
@@ -623,10 +640,21 @@ export class MySqlActivityRepository implements IActivityRepository {
       timeZone: row.end_timezone || 'UTC'
     };
 
+    const reminderOverrides =
+      typeof row.reminders_overrides === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(row.reminders_overrides);
+            } catch {
+              return undefined;
+            }
+          })()
+        : row.reminders_overrides;
+
     const reminders = {
       useDefault: row.reminders_use_default ?? true,
-      overrides: Array.isArray(row.reminders_overrides)
-        ? row.reminders_overrides
+      overrides: Array.isArray(reminderOverrides)
+        ? reminderOverrides
         : undefined,
     };
 

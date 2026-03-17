@@ -36,8 +36,17 @@ interface GoogleCalendarEvent {
   id?: string;
   status?: string;
   summary?: string;
+  transparency?: 'transparent' | 'opaque';
   description?: string;
   location?: string;
+  recurrence?: string[];
+  reminders?: {
+    useDefault?: boolean;
+    overrides?: Array<{
+      method?: 'email' | 'popup';
+      minutes?: number;
+    }>;
+  };
   htmlLink?: string;
   organizer?: {
     email?: string;
@@ -526,10 +535,52 @@ export class AuthController {
         throw new Error(payload.error?.message || 'No se pudo consultar Google Calendar');
       }
 
+      const normalizedItems = await Promise.all(
+        (payload.items || []).map(async (item) => {
+          const localActivity = item.id
+            ? await this.activityRepository.findByGoogleEventId(item.id)
+            : null;
+
+          const localPriority = localActivity?.priority
+            ? {
+                valor: localActivity.priority.valor,
+                color: localActivity.priority.color,
+              }
+            : null;
+
+          return {
+            ...item,
+            transparency:
+              item.transparency === 'transparent'
+                ? 'libre'
+                : localActivity?.transparency === 'transparent'
+                  ? 'libre'
+                  : 'ocupado',
+            description: item.description ?? localActivity?.details?.description ?? null,
+            location: item.location ?? localActivity?.details?.location ?? null,
+            recurrence: item.recurrence ?? localActivity?.recurrence ?? null,
+            repetition: localActivity?.repetition
+              ? {
+                  idFrecuencia: localActivity.repetition.idFrecuencia,
+                  diasSemana: localActivity.repetition.diasSemana,
+                  fechaInicio: localActivity.repetition.fechaInicio,
+                  fechaFin: localActivity.repetition.fechaFin,
+                }
+              : null,
+            reminders: item.reminders ?? localActivity?.reminders ?? null,
+            etiqueta:
+              localActivity?.etiqueta ??
+              (localActivity?.idEtiqueta ? { id: localActivity.idEtiqueta } : null),
+            prioridad: localActivity?.prioridad ?? localPriority,
+            color: localActivity?.priority?.color ?? null,
+          };
+        })
+      );
+
       res.status(200).json({
         success: true,
         data: {
-          items: payload.items || [],
+          items: normalizedItems,
           nextPageToken: payload.nextPageToken,
           nextSyncToken: payload.nextSyncToken,
         },
@@ -873,8 +924,26 @@ export class AuthController {
             calendarId,
             status: item.status,
             summary: item.summary,
+            transparency: item.transparency,
             description: item.description,
             location: item.location,
+            recurrence: item.recurrence,
+            reminders: item.reminders
+              ? {
+                  useDefault: item.reminders.useDefault ?? true,
+                  overrides: Array.isArray(item.reminders.overrides)
+                    ? item.reminders.overrides
+                        .filter((override) =>
+                          (override.method === 'email' || override.method === 'popup') &&
+                          typeof override.minutes === 'number'
+                        )
+                        .map((override) => ({
+                          method: override.method as 'email' | 'popup',
+                          minutes: override.minutes as number,
+                        }))
+                    : undefined,
+                }
+              : undefined,
             htmlLink: item.htmlLink,
             organizerEmail: item.organizer?.email,
             start: item.start,

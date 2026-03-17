@@ -149,6 +149,31 @@ export class ActivityPostController {
     return undefined;
   }
 
+  private normalizeTransparency(value: unknown): 'transparent' | 'opaque' | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'libre' || normalized === 'transparent') {
+      return 'transparent';
+    }
+
+    if (normalized === 'ocupado' || normalized === 'opaque') {
+      return 'opaque';
+    }
+
+    return undefined;
+  }
+
+  private toClientTransparency(value?: 'transparent' | 'opaque'): 'ocupado' | 'libre' {
+    if (value === 'transparent') {
+      return 'libre';
+    }
+
+    return 'ocupado';
+  }
+
   private buildGoogleRecurrence(bodyParams: Record<string, any>): string[] | undefined {
     if (Array.isArray(bodyParams.recurrence) && bodyParams.recurrence.length > 0) {
       return bodyParams.recurrence;
@@ -251,6 +276,7 @@ export class ActivityPostController {
       status: activity.status,
       start: this.toGoogleDateTime(activity.start),
       end: this.toGoogleDateTime(activity.end),
+      transparency: activity.transparency ?? 'opaque',
     };
 
     if (typeof activity.details.description === 'string') {
@@ -618,6 +644,8 @@ export class ActivityPostController {
   private buildUpdatedActivity(existing: Activity, bodyParams: Record<string, any>): Activity {
     const summary = bodyParams.summary ?? existing.summary;
     const normalizedRecurrence = this.buildGoogleRecurrence(bodyParams) ?? bodyParams.recurrence ?? existing.recurrence;
+    const normalizedTransparency =
+      this.normalizeTransparency(bodyParams.transparency) ?? existing.transparency ?? 'opaque';
     const repetitionUpdate = this.resolveUpdatedRepetition(existing, bodyParams);
     const updatedCategoryId = this.resolveUpdatedCategoryId(existing, bodyParams);
     const updatedPriority = this.resolveUpdatedPriority(existing, bodyParams);
@@ -660,7 +688,7 @@ export class ActivityPostController {
       (bodyParams.organizer as EventActor | undefined) ?? existing.organizer,
       bodyParams.iCalUID ?? existing.iCalUID,
       bodyParams.sequence ?? existing.sequence,
-      bodyParams.transparency ?? existing.transparency,
+      normalizedTransparency,
       bodyParams.eventType ?? existing.eventType,
       normalizedRecurrence,
       bodyParams.recurringEventId ?? existing.recurringEventId,
@@ -724,14 +752,14 @@ export class ActivityPostController {
       status: activity.status,
       start: activity.start,
       end: activity.end,
-      description: activity.details.description,
-      location: activity.details.location,
+      description: activity.details.description ?? null,
+      location: activity.details.location ?? null,
       iCalUID: activity.iCalUID,
       sequence: activity.sequence,
-      transparency: activity.transparency,
+      transparency: this.toClientTransparency(activity.transparency),
       eventType: activity.eventType,
       source: activity.source,
-      recurrence: activity.recurrence,
+      recurrence: activity.recurrence ?? null,
       repetition: activity.repetition
         ? {
             idFrecuencia: activity.repetition.idFrecuencia,
@@ -739,13 +767,13 @@ export class ActivityPostController {
             fechaInicio: activity.repetition.fechaInicio,
             fechaFin: activity.repetition.fechaFin,
           }
-        : undefined,
+        : null,
       recurringEventId: activity.recurringEventId,
       originalStartTime: activity.originalStartTime,
-      reminders: activity.reminders,
-      etiqueta: activity.etiqueta ?? (activity.idEtiqueta ? { id: activity.idEtiqueta } : undefined),
-      prioridad: activity.prioridad ?? normalizedPriority,
-      color: activity.priority?.color,
+      reminders: activity.reminders ?? null,
+      etiqueta: activity.etiqueta ?? (activity.idEtiqueta ? { id: activity.idEtiqueta } : null),
+      prioridad: activity.prioridad ?? normalizedPriority ?? null,
+      color: activity.priority?.color ?? null,
       updated: activity.updated,
       created: activity.created,
     };
@@ -834,6 +862,7 @@ export class ActivityPostController {
 
       const normalizedReminders = (bodyParams.reminders ?? bodyParams.remiders) as EventReminders | undefined;
       const normalizedRecurrence = this.buildGoogleRecurrence(bodyParams);
+      const normalizedTransparency = this.normalizeTransparency(bodyParams.transparency) ?? 'opaque';
       const normalizedPriority = this.normalizePriorityValue(
         bodyParams.prioridadValor ??
           bodyParams.prioridadNivel ??
@@ -880,7 +909,7 @@ export class ActivityPostController {
         updated: bodyParams.updated,
         iCalUID: bodyParams.iCalUID,
         sequence: bodyParams.sequence,
-        transparency: bodyParams.transparency,
+        transparency: normalizedTransparency,
         eventType: bodyParams.eventType,
         recurrence: normalizedRecurrence,
         status: bodyParams.status,
