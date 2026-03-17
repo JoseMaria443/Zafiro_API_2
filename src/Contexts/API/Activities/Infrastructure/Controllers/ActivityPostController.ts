@@ -703,16 +703,33 @@ export class ActivityPostController {
   }
 
   private toCalendarEvent(activity: Activity): Record<string, unknown> {
+    const normalizedPriority = activity.priority
+      ? {
+          valor: activity.priority.valor,
+          color: activity.priority.color,
+        }
+      : undefined;
+
     return {
       id: activity.googleEventId || activity.id,
       localId: activity.id,
+      kind: activity.kind,
+      etag: activity.etag,
+      htmlLink: activity.htmlLink,
+      idUsuario: activity.idUsuario,
+      idEtiqueta: activity.idEtiqueta,
       summary: activity.summary,
+      creator: activity.creator,
+      organizer: activity.organizer,
       status: activity.status,
       start: activity.start,
       end: activity.end,
       description: activity.details.description,
       location: activity.details.location,
-      htmlLink: activity.htmlLink,
+      iCalUID: activity.iCalUID,
+      sequence: activity.sequence,
+      transparency: activity.transparency,
+      eventType: activity.eventType,
       source: activity.source,
       recurrence: activity.recurrence,
       repetition: activity.repetition
@@ -723,6 +740,12 @@ export class ActivityPostController {
             fechaFin: activity.repetition.fechaFin,
           }
         : undefined,
+      recurringEventId: activity.recurringEventId,
+      originalStartTime: activity.originalStartTime,
+      reminders: activity.reminders,
+      etiqueta: activity.etiqueta ?? (activity.idEtiqueta ? { id: activity.idEtiqueta } : undefined),
+      prioridad: activity.prioridad ?? normalizedPriority,
+      color: activity.priority?.color,
       updated: activity.updated,
       created: activity.created,
     };
@@ -905,43 +928,7 @@ export class ActivityPostController {
       res.status(201).json({
         success: true,
         message: 'Actividad creada correctamente',
-        data: {
-          id: activity.id,
-          kind: activity.kind,
-          etag: activity.etag,
-          htmlLink: activity.htmlLink,
-          idUsuario: activity.idUsuario,
-          idEtiqueta: activity.idEtiqueta,
-          summary: activity.summary,
-          creator: activity.creator,
-          organizer: activity.organizer,
-          start: activity.start,
-          end: activity.end,
-          created: activity.created,
-          updated: activity.updated,
-          iCalUID: activity.iCalUID,
-          sequence: activity.sequence,
-          transparency: activity.transparency,
-          eventType: activity.eventType,
-          recurrence: activity.recurrence,
-          repetition: activity.repetition
-            ? {
-                idFrecuencia: activity.repetition.idFrecuencia,
-                diasSemana: activity.repetition.diasSemana,
-                fechaInicio: activity.repetition.fechaInicio,
-                fechaFin: activity.repetition.fechaFin,
-              }
-            : undefined,
-          status: activity.status,
-          recurringEventId: activity.recurringEventId,
-          originalStartTime: activity.originalStartTime,
-          reminders: activity.reminders,
-          etiqueta: activity.etiqueta,
-          prioridad: activity.prioridad,
-          description: activity.details.description,
-          location: activity.details.location,
-          color: activity.priority?.color,
-        },
+        data: this.toCalendarEvent(activity),
       });
     } catch (error) {
       res.status(400).json({
@@ -993,7 +980,7 @@ export class ActivityPostController {
 
       res.status(200).json({
         success: true,
-        data: activity,
+        data: this.toCalendarEvent(activity),
       });
     } catch (error) {
       res.status(400).json({
@@ -1065,7 +1052,7 @@ export class ActivityPostController {
       res.status(200).json({
         success: true,
         message: 'Actividad actualizada correctamente',
-        data: refreshed ?? updatedActivity,
+        data: this.toCalendarEvent(refreshed ?? updatedActivity),
       });
     } catch (error) {
       res.status(400).json({
@@ -1176,44 +1163,7 @@ export class ActivityPostController {
 
       res.status(200).json({
         success: true,
-        data: activities.map((activity: Activity) => ({
-          id: activity.googleEventId || activity.id,
-          localId: activity.id,
-          kind: activity.kind,
-          etag: activity.etag,
-          htmlLink: activity.htmlLink,
-          idUsuario: activity.idUsuario,
-          idEtiqueta: activity.idEtiqueta,
-          summary: activity.summary,
-          creator: activity.creator,
-          organizer: activity.organizer,
-          start: activity.start,
-          end: activity.end,
-          created: activity.created,
-          updated: activity.updated,
-          iCalUID: activity.iCalUID,
-          sequence: activity.sequence,
-          transparency: activity.transparency,
-          eventType: activity.eventType,
-          recurrence: activity.recurrence,
-          repetition: activity.repetition
-            ? {
-                idFrecuencia: activity.repetition.idFrecuencia,
-                diasSemana: activity.repetition.diasSemana,
-                fechaInicio: activity.repetition.fechaInicio,
-                fechaFin: activity.repetition.fechaFin,
-              }
-            : undefined,
-          status: activity.status,
-          recurringEventId: activity.recurringEventId,
-          originalStartTime: activity.originalStartTime,
-          reminders: activity.reminders,
-          etiqueta: activity.etiqueta,
-          prioridad: activity.prioridad,
-          description: activity.details.description,
-          location: activity.details.location,
-          color: activity.priority?.color,
-        })),
+        data: activities.map((activity: Activity) => this.toCalendarEvent(activity)),
       });
     } catch (error) {
       res.status(400).json({
@@ -1270,42 +1220,7 @@ export class ActivityPostController {
       res.status(200).json({
         success: true,
         date: date.toISOString().split('T')[0],
-        data: activities.map((activity: Activity) => ({
-          id: activity.googleEventId || activity.id,
-          localId: activity.id,
-          kind: activity.kind,
-          etag: activity.etag,
-          htmlLink: activity.htmlLink,
-          summary: activity.summary,
-          creator: activity.creator,
-          organizer: activity.organizer,
-          start: activity.start,
-          end: activity.end,
-          created: activity.created,
-          updated: activity.updated,
-          iCalUID: activity.iCalUID,
-          sequence: activity.sequence,
-          transparency: activity.transparency,
-          eventType: activity.eventType,
-          recurrence: activity.recurrence,
-          repetition: activity.repetition
-            ? {
-                idFrecuencia: activity.repetition.idFrecuencia,
-                diasSemana: activity.repetition.diasSemana,
-                fechaInicio: activity.repetition.fechaInicio,
-                fechaFin: activity.repetition.fechaFin,
-              }
-            : undefined,
-          status: activity.status,
-          recurringEventId: activity.recurringEventId,
-          originalStartTime: activity.originalStartTime,
-          reminders: activity.reminders,
-          etiqueta: activity.etiqueta,
-          prioridad: activity.prioridad,
-          description: activity.details.description,
-          location: activity.details.location,
-          color: activity.priority?.color,
-        })),
+        data: activities.map((activity: Activity) => this.toCalendarEvent(activity)),
       });
     } catch (error) {
       res.status(400).json({
