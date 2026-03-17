@@ -59,6 +59,10 @@ export interface CreateActivityRequest {
 export class CreateActivityUseCase {
   constructor(private activityRepository: IActivityRepository) {}
 
+  private defaultWeekDays(): string {
+    return 'MON,TUE,WED,THU,FRI,SAT,SUN';
+  }
+
   private toPriorityLevel(
     prioridadValor?: 'baja' | 'media' | 'alta',
     prioridadNivel?: PriorityLevel
@@ -108,15 +112,18 @@ export class CreateActivityUseCase {
     let repetition: Repetition | undefined;
     if (
       request.idFrecuencia &&
-      request.diasSemana &&
       request.fechaInicio &&
       request.fechaFin
     ) {
+      const diasSemana =
+        typeof request.diasSemana === 'string' && request.diasSemana.trim().length > 0
+          ? request.diasSemana.trim()
+          : this.defaultWeekDays();
       repetition = new Repetition(
         1, // Use fixed ID for now
         request.id, // Activity ID (string), not detailsId
         request.idFrecuencia,
-        request.diasSemana,
+        diasSemana,
         request.fechaInicio,
         request.fechaFin
       );

@@ -7,6 +7,7 @@ import type { IActivityRepository } from '../../Domain/ActivityRepository.js';
 import type { EventActor, EventDateTime, EventReminders } from '../../Domain/Activity.js';
 import { Activity } from '../../Domain/Activity.js';
 import { ActivityDetails } from '../../Domain/ActivityDetails.js';
+import { ActivityPriority, PriorityLevel } from '../../Domain/ActivityPriority.js';
 import { Repetition } from '../../Domain/Repetition.js';
 import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 
@@ -252,7 +253,7 @@ export class ActivityPostController {
       end: this.toGoogleDateTime(activity.end),
     };
 
-    if (activity.details.description) {
+    if (typeof activity.details.description === 'string') {
       payload.description = activity.details.description;
     }
 
@@ -269,6 +270,81 @@ export class ActivityPostController {
     }
 
     return payload;
+  }
+
+  private defaultWeekDays(): string {
+    return 'MON,TUE,WED,THU,FRI,SAT,SUN';
+  }
+
+  private toPriorityLevel(value: 'baja' | 'media' | 'alta'): PriorityLevel {
+    if (value === 'alta') {
+      return PriorityLevel.HIGH;
+    }
+
+    if (value === 'media') {
+      return PriorityLevel.MEDIUM;
+    }
+
+    return PriorityLevel.LOW;
+  }
+
+  private resolveUpdatedCategoryId(existing: Activity, bodyParams: Record<string, any>): number | null | undefined {
+    if (!Object.prototype.hasOwnProperty.call(bodyParams, 'idEtiqueta')) {
+      return existing.idEtiqueta;
+    }
+
+    const incoming = bodyParams.idEtiqueta;
+    if (incoming === null) {
+      return null;
+    }
+
+    if (typeof incoming === 'number' && Number.isInteger(incoming) && incoming > 0) {
+      return incoming;
+    }
+
+    return existing.idEtiqueta;
+  }
+
+  private resolveUpdatedPriority(existing: Activity, bodyParams: Record<string, any>): ActivityPriority | undefined {
+    const hasPriorityPayload =
+      Object.prototype.hasOwnProperty.call(bodyParams, 'prioridadValor') ||
+      Object.prototype.hasOwnProperty.call(bodyParams, 'prioridadNivel') ||
+      Object.prototype.hasOwnProperty.call(bodyParams, 'prioridad') ||
+      Object.prototype.hasOwnProperty.call(bodyParams, 'color');
+
+    if (!hasPriorityPayload) {
+      return existing.priority;
+    }
+
+    const shouldRemovePriority =
+      bodyParams.prioridadValor === null ||
+      bodyParams.prioridadNivel === null ||
+      bodyParams.prioridad === null;
+    if (shouldRemovePriority) {
+      return undefined;
+    }
+
+    const normalizedPriority = this.normalizePriorityValue(
+      bodyParams.prioridadValor ??
+        bodyParams.prioridadNivel ??
+        (typeof bodyParams.prioridad === 'string' ? bodyParams.prioridad : undefined)
+    );
+
+    const normalizedColor =
+      typeof bodyParams.color === 'string' && bodyParams.color.trim().length > 0
+        ? bodyParams.color
+        : undefined;
+
+    if (normalizedPriority) {
+      const color = normalizedColor ?? existing.priority?.color ?? this.defaultPriorityColor(normalizedPriority) ?? '#2FA941';
+      return new ActivityPriority(existing.priority?.id ?? 1, existing.id, this.toPriorityLevel(normalizedPriority), color);
+    }
+
+    if (normalizedColor && existing.priority) {
+      return new ActivityPriority(existing.priority.id, existing.id, existing.priority.valor, normalizedColor);
+    }
+
+    return existing.priority;
   }
 
   private parseFrequencyId(value: unknown): number | undefined {
@@ -323,11 +399,11 @@ export class ActivityPostController {
     const diasSemana =
       typeof bodyParams.diasSemana === 'string' && bodyParams.diasSemana.trim().length > 0
         ? bodyParams.diasSemana.trim()
-        : existing.repetition?.diasSemana;
+        : existing.repetition?.diasSemana ?? this.defaultWeekDays();
     const fechaInicio = this.parseDateValue(bodyParams.fechaInicio) ?? existing.repetition?.fechaInicio;
     const fechaFin = this.parseDateValue(bodyParams.fechaFin) ?? existing.repetition?.fechaFin;
 
-    if (idFrecuencia && diasSemana && fechaInicio && fechaFin) {
+    if (idFrecuencia && fechaInicio && fechaFin) {
       return {
         repetition: new Repetition(1, existing.id, idFrecuencia, diasSemana, fechaInicio, fechaFin),
         fechaInicio,
@@ -543,6 +619,8 @@ export class ActivityPostController {
     const summary = bodyParams.summary ?? existing.summary;
     const normalizedRecurrence = this.buildGoogleRecurrence(bodyParams) ?? bodyParams.recurrence ?? existing.recurrence;
     const repetitionUpdate = this.resolveUpdatedRepetition(existing, bodyParams);
+    const updatedCategoryId = this.resolveUpdatedCategoryId(existing, bodyParams);
+    const updatedPriority = this.resolveUpdatedPriority(existing, bodyParams);
     const start = this.keepExistingTimeZone(
       existing.start,
       this.mergeEventDateTime(existing.start, bodyParams.start as EventDateTime | undefined)
@@ -574,7 +652,7 @@ export class ActivityPostController {
       new Date().toISOString(),
       bodyParams.status ?? existing.status,
       details,
-      bodyParams.idEtiqueta ?? existing.idEtiqueta,
+      updatedCategoryId as any,
       bodyParams.kind ?? existing.kind,
       bodyParams.etag ?? existing.etag,
       bodyParams.htmlLink ?? existing.htmlLink,
@@ -590,7 +668,7 @@ export class ActivityPostController {
       (bodyParams.reminders as EventReminders | undefined) ?? existing.reminders,
       bodyParams.etiqueta ?? existing.etiqueta,
       bodyParams.prioridad ?? existing.prioridad,
-      existing.priority,
+      updatedPriority,
       repetitionUpdate.repetition,
       repetitionUpdate.fechaInicio,
       repetitionUpdate.fechaFin,

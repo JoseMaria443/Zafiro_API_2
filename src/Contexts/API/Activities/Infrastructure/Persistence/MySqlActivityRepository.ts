@@ -184,12 +184,15 @@ export class MySqlActivityRepository implements IActivityRepository {
           end_timezone,
           event_created,
           event_updated,
+          transparency,
+          event_type,
+          recurring_event_id,
           source,
           last_synced_at,
           tiempo_descanso_min, 
           tiempo_muerto_min
          ) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) 
          RETURNING id`,
         [
           activity.id,
@@ -207,6 +210,9 @@ export class MySqlActivityRepository implements IActivityRepository {
           activity.end.timeZone || 'UTC',
           activity.created || new Date().toISOString(),
           activity.updated || new Date().toISOString(),
+          activity.transparency || null,
+          activity.eventType || null,
+          activity.recurringEventId || null,
           activity.source || 'local',
           activity.source === 'google' ? new Date().toISOString() : null,
           activity.tiempoDescansoMin || 0,
