@@ -239,10 +239,12 @@ export class MySqlActivityRepository implements IActivityRepository {
       `SELECT a.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
+          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
        LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
        LEFT JOIN prioridad p ON a.id = p.id_actividad
+        LEFT JOIN etiquetas e ON a.id_etiqueta = e.id
        LEFT JOIN repeticiones r ON a.id = r.id_actividad
        WHERE a.id = $1`,
       [id]
@@ -260,10 +262,12 @@ export class MySqlActivityRepository implements IActivityRepository {
       `SELECT a.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
+          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
        LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
        LEFT JOIN prioridad p ON a.id = p.id_actividad
+        LEFT JOIN etiquetas e ON a.id_etiqueta = e.id
        LEFT JOIN repeticiones r ON a.id = r.id_actividad
        WHERE a.google_event_id = $1
        LIMIT 1`,
@@ -282,10 +286,12 @@ export class MySqlActivityRepository implements IActivityRepository {
       `SELECT a.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
+          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
        LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
        LEFT JOIN prioridad p ON a.id = p.id_actividad
+        LEFT JOIN etiquetas e ON a.id_etiqueta = e.id
        LEFT JOIN repeticiones r ON a.id = r.id_actividad
        WHERE a.id_usuario = $1
        ORDER BY a.event_created DESC`,
@@ -302,10 +308,12 @@ export class MySqlActivityRepository implements IActivityRepository {
       `SELECT a.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
        LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
        LEFT JOIN prioridad p ON a.id = p.id_actividad
+       LEFT JOIN etiquetas e ON a.id_etiqueta = e.id
        LEFT JOIN repeticiones r ON a.id = r.id_actividad
        WHERE a.id_usuario = $1 
          AND (a.start_date = $2 OR DATE(a.start_datetime) = $2)
@@ -321,10 +329,12 @@ export class MySqlActivityRepository implements IActivityRepository {
       `SELECT a.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.recurrence, ad.reminders_use_default, ad.reminders_overrides,
               p.valor as prioridad_valor, p.color as prioridad_color,
+          e.id as etiqueta_id, e.nombre as etiqueta_nombre, e.transparencia as etiqueta_transparencia, e.color as etiqueta_color,
               r.id_frecuencia, r.dias_semana, r.fecha_inicio, r.fecha_fin
        FROM actividades a
        LEFT JOIN actividades_detalles ad ON a.id = ad.id_actividad
        LEFT JOIN prioridad p ON a.id = p.id_actividad
+        LEFT JOIN etiquetas e ON a.id_etiqueta = e.id
        LEFT JOIN repeticiones r ON a.id = r.id_actividad
        WHERE a.id_etiqueta = $1
        ORDER BY a.event_created DESC`,
@@ -658,6 +668,22 @@ export class MySqlActivityRepository implements IActivityRepository {
         : undefined,
     };
 
+    const etiqueta = row.etiqueta_id
+      ? {
+          id: Number(row.etiqueta_id),
+          nombre: row.etiqueta_nombre || null,
+          transparencia: row.etiqueta_transparencia || null,
+          color: row.etiqueta_color || null,
+        }
+      : undefined;
+
+    const prioridad = row.prioridad_valor
+      ? {
+          valor: row.prioridad_valor,
+          color: row.prioridad_color || '#FFC107',
+        }
+      : undefined;
+
     return new Activity(
       row.id?.toString() || '',
       row.id_usuario,
@@ -682,8 +708,8 @@ export class MySqlActivityRepository implements IActivityRepository {
       row.recurring_event_id || undefined,
       undefined,
       reminders,
-      undefined,
-      undefined,
+      etiqueta,
+      prioridad,
       priority,
       repetition,
       // RF-03 Fields
