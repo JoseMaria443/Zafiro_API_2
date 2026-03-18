@@ -107,6 +107,12 @@ export class ActivityPostController {
     return '#2FA941';
   }
 
+  private isGoogleSyncDisabled(): boolean {
+    const mode = process.env.GOOGLE_SYNC_MODE?.trim().toLowerCase();
+    const disabled = process.env.DISABLE_GOOGLE_SYNC?.trim().toLowerCase();
+    return mode === 'disabled' || disabled === 'true' || disabled === '1';
+  }
+
   private normalizeGoogleFrequency(value: unknown): 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | undefined {
     if (typeof value === 'string') {
       const normalized = value.trim().toLowerCase();
@@ -866,7 +872,7 @@ export class ActivityPostController {
       }
 
       // Se exige conexión activa para que create quede sincronizado a Google Calendar.
-      if (bodyParams.source !== 'google') {
+      if (!this.isGoogleSyncDisabled() && bodyParams.source !== 'google') {
         const connection = await this.getGoogleConnectionByUserId(resolvedUserId);
         if (!connection || !connection.isActive) {
           res.status(409).json({
@@ -931,7 +937,7 @@ export class ActivityPostController {
 
       const activity = await this.createActivityUseCase.execute(request);
 
-      if (activity.source !== 'google') {
+      if (!this.isGoogleSyncDisabled() && activity.source !== 'google') {
         const googleEvent = await this.createGoogleEventForActivity(activity);
         if (googleEvent.id) {
           await this.saveGoogleEventLink(activity.id, activity.idUsuario, googleEvent.id, googleEvent.htmlLink);
@@ -1055,9 +1061,11 @@ export class ActivityPostController {
       const updatedActivity = this.buildUpdatedActivity(existing, bodyParams);
       await this.activityRepository.update(updatedActivity);
 
-      const googleEvent = await this.updateGoogleEventForActivity(updatedActivity);
-      if (googleEvent.id) {
-        await this.saveGoogleEventLink(updatedActivity.id, updatedActivity.idUsuario, googleEvent.id, googleEvent.htmlLink);
+      if (!this.isGoogleSyncDisabled()) {
+        const googleEvent = await this.updateGoogleEventForActivity(updatedActivity);
+        if (googleEvent.id) {
+          await this.saveGoogleEventLink(updatedActivity.id, updatedActivity.idUsuario, googleEvent.id, googleEvent.htmlLink);
+        }
       }
 
       const refreshed = await this.searchActivityUseCase.activityById(updatedActivity.id);
@@ -1115,7 +1123,7 @@ export class ActivityPostController {
         return;
       }
 
-      if (existing.googleEventId) {
+      if (!this.isGoogleSyncDisabled() && existing.googleEventId) {
         await this.deleteGoogleEventForActivity(existing);
       }
 
