@@ -57,6 +57,18 @@ export interface CreateActivityRequest {
 export class CreateActivityUseCase {
   constructor(private activityRepository: IActivityRepository) {}
 
+  private defaultPriorityColor(value: PriorityLevel): string {
+    if (value === PriorityLevel.HIGH || value === PriorityLevel.CRITICAL) {
+      return '#AB3535';
+    }
+
+    if (value === PriorityLevel.MEDIUM) {
+      return '#E2761F';
+    }
+
+    return '#2FA941';
+  }
+
   private defaultWeekDays(): string {
     return 'MON,TUE,WED,THU,FRI,SAT,SUN';
   }
@@ -98,12 +110,12 @@ export class CreateActivityUseCase {
 
     let priority: ActivityPriority | undefined;
     const priorityLevel = this.toPriorityLevel(request.prioridadValor, request.prioridadNivel);
-    if (priorityLevel && request.color) {
+    if (priorityLevel) {
       priority = new ActivityPriority(
         1, // Use fixed ID for now
         request.id,
         priorityLevel,
-        request.color
+        request.color || this.defaultPriorityColor(priorityLevel)
       );
     }
 

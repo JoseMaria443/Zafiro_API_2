@@ -28,6 +28,18 @@ export interface GoogleCalendarEventInput {
 export class MySqlActivityRepository implements IActivityRepository {
   private db = PostgresConnection.getInstance();
 
+  private defaultPriorityColor(value: PriorityLevel): string {
+    if (value === PriorityLevel.HIGH || value === PriorityLevel.CRITICAL) {
+      return '#AB3535';
+    }
+
+    if (value === PriorityLevel.MEDIUM) {
+      return '#E2761F';
+    }
+
+    return '#2FA941';
+  }
+
   private normalizeFrecuencia(value?: string): 'diaria' | 'semanal' | 'mensual' | undefined {
     if (!value) {
       return undefined;
@@ -178,7 +190,11 @@ export class MySqlActivityRepository implements IActivityRepository {
     await client.query(
       `INSERT INTO prioridad (id_actividad, valor, color)
        VALUES ($1, $2, $3)`,
-      [activityId, this.toDbPriorityValue(activity.priority.valor), activity.priority.color]
+      [
+        activityId,
+        this.toDbPriorityValue(activity.priority.valor),
+        activity.priority.color || this.defaultPriorityColor(activity.priority.valor),
+      ]
     );
   }
 
@@ -260,7 +276,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     const result = await this.db.query(
       `SELECT ac.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-                p.valor as prioridad_valor, p.color as prioridad_color,
+                p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
               e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
        LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
@@ -281,7 +297,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     const result = await this.db.query(
       `SELECT ac.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-                p.valor as prioridad_valor, p.color as prioridad_color,
+                p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
               e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
        LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
@@ -303,7 +319,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     const result = await this.db.query(
       `SELECT ac.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-                p.valor as prioridad_valor, p.color as prioridad_color,
+                p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
               e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
        LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
@@ -323,7 +339,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     const result = await this.db.query(
       `SELECT ac.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-              p.valor as prioridad_valor, p.color as prioridad_color,
+              p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
               e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
        LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
@@ -342,7 +358,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     const result = await this.db.query(
       `SELECT ac.*, 
               ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-                p.valor as prioridad_valor, p.color as prioridad_color,
+                p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
               e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
        LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
@@ -633,10 +649,10 @@ export class MySqlActivityRepository implements IActivityRepository {
     const priorityLevel = this.toDomainPriorityLevel(row.prioridad_valor);
     if (priorityLevel) {
       priority = new ActivityPriority(
-        row.id,
-        row.id_usuario,
+        Number(row.prioridad_id || 1),
+        row.id?.toString() || '',
         priorityLevel,
-        row.prioridad_color || '#FFC107'
+        row.prioridad_color || this.defaultPriorityColor(priorityLevel)
       );
     }
 
