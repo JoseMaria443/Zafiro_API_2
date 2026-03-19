@@ -17,7 +17,7 @@ export interface GoogleCalendarEventInput {
   organizerEmail?: string;
   recurrence?: string[];
   reminders?: EventReminders;
-  frecuencia?: 'diaria' | 'semanal' | 'mensual';
+  frecuencia?: 'diaria' | 'semanal' | 'mensual' | 'anual';
   start?: EventDateTime;
   end?: EventDateTime;
   created?: string;
@@ -40,7 +40,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     return '#2FA941';
   }
 
-  private normalizeFrecuencia(value?: string): 'diaria' | 'semanal' | 'mensual' | undefined {
+  private normalizeFrecuencia(value?: string): 'diaria' | 'semanal' | 'mensual' | 'anual' | undefined {
     if (!value) {
       return undefined;
     }
@@ -58,10 +58,14 @@ export class MySqlActivityRepository implements IActivityRepository {
       return 'mensual';
     }
 
+    if (normalized === 'anual' || normalized === 'yearly') {
+      return 'anual';
+    }
+
     return undefined;
   }
 
-  private parseFrecuenciaFromRecurrence(recurrence?: string[]): 'diaria' | 'semanal' | 'mensual' | undefined {
+  private parseFrecuenciaFromRecurrence(recurrence?: string[]): 'diaria' | 'semanal' | 'mensual' | 'anual' | undefined {
     if (!Array.isArray(recurrence) || recurrence.length === 0) {
       return undefined;
     }
@@ -77,6 +81,10 @@ export class MySqlActivityRepository implements IActivityRepository {
 
     if (joined.includes('FREQ=MONTHLY')) {
       return 'mensual';
+    }
+
+    if (joined.includes('FREQ=YEARLY')) {
+      return 'anual';
     }
 
     return undefined;
@@ -744,7 +752,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       undefined,
       row.source || 'local',
       row.google_event_id || undefined,
-      row.frecuencia || undefined
+      this.normalizeFrecuencia(row.frecuencia) ?? this.parseFrecuenciaFromRecurrence(row.recurrence) ?? undefined
     );
   }
 }

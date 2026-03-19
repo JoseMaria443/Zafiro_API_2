@@ -21,6 +21,8 @@ interface GoogleConnectionRecord {
   isActive: boolean;
 }
 
+type LocalFrecuencia = 'diaria' | 'semanal' | 'mensual' | 'anual';
+
 export class ActivityPostController {
   private db = PostgresConnection.getInstance();
 
@@ -198,6 +200,93 @@ export class ActivityPostController {
     }
 
     return [`RRULE:${parts.join(';')}`];
+  }
+
+  private toLocalFrecuencia(value: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'): LocalFrecuencia {
+    if (value === 'DAILY') {
+      return 'diaria';
+    }
+
+    if (value === 'WEEKLY') {
+      return 'semanal';
+    }
+
+    if (value === 'MONTHLY') {
+      return 'mensual';
+    }
+
+    return 'anual';
+  }
+
+  private parseRecurrenceRule(
+    recurrence?: string[]
+  ): { frecuencia?: LocalFrecuencia; diasSemana?: string; until?: string } {
+    if (!Array.isArray(recurrence) || recurrence.length === 0) {
+      return {};
+    }
+
+    const rruleLine = recurrence.find(
+      (value) => typeof value === 'string' && value.trim().toUpperCase().startsWith('RRULE:')
+    );
+
+    if (!rruleLine) {
+      return {};
+    }
+
+    const parts = rruleLine
+      .trim()
+      .replace(/^RRULE:/i, '')
+      .split(';')
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+
+    let frecuencia: LocalFrecuencia | undefined;
+    let diasSemana: string | undefined;
+    let until: string | undefined;
+
+    for (const part of parts) {
+      const [rawKey, rawValue] = part.split('=');
+      const key = rawKey?.toUpperCase();
+      const value = rawValue?.toUpperCase();
+
+      if (!key || !value) {
+        continue;
+      }
+
+      if (key === 'FREQ') {
+        if (value === 'DAILY') {
+          frecuencia = 'diaria';
+        } else if (value === 'WEEKLY') {
+          frecuencia = 'semanal';
+        } else if (value === 'MONTHLY') {
+          frecuencia = 'mensual';
+        } else if (value === 'YEARLY') {
+          frecuencia = 'anual';
+        }
+      }
+
+      if (key === 'BYDAY') {
+        diasSemana = value;
+      }
+
+      if (key === 'UNTIL') {
+        until = value;
+      }
+    }
+
+    return { frecuencia, diasSemana, until };
+  }
+
+  private resolveLocalFrecuencia(
+    value: unknown,
+    recurrence?: string[]
+  ): LocalFrecuencia | undefined {
+    const normalized = this.normalizeGoogleFrequency(value);
+    if (normalized) {
+      return this.toLocalFrecuencia(normalized);
+    }
+
+    return this.parseRecurrenceRule(recurrence).frecuencia;
   }
 
   private parseHour(date?: EventDateTime): number | undefined {
@@ -636,6 +725,9 @@ export class ActivityPostController {
   private buildUpdatedActivity(existing: Activity, bodyParams: Record<string, any>): Activity {
     const summary = bodyParams.summary ?? existing.summary;
     const normalizedRecurrence = this.buildGoogleRecurrence(bodyParams) ?? bodyParams.recurrence ?? existing.recurrence;
+    const normalizedFrecuencia =
+      this.resolveLocalFrecuencia(bodyParams.frecuencia ?? bodyParams.idFrecuencia, normalizedRecurrence) ??
+      existing.frecuencia;
     const normalizedTransparency =
       this.normalizeTransparency(bodyParams.transparency) ?? existing.transparency ?? 'opaque';
     const repetitionUpdate = this.resolveUpdatedRepetition(existing, bodyParams);
@@ -696,7 +788,7 @@ export class ActivityPostController {
       bodyParams.horaFin ?? existing.horaFin ?? this.parseHour(end),
       bodyParams.source ?? existing.source,
       existing.googleEventId,
-      bodyParams.frecuencia ?? existing.frecuencia
+      normalizedFrecuencia
     );
   }
 
@@ -730,6 +822,9 @@ export class ActivityPostController {
         }
       : undefined;
 
+    const recurrenceInfo = this.parseRecurrenceRule(activity.recurrence);
+    const frecuencia = activity.frecuencia ?? recurrenceInfo.frecuencia ?? null;
+
     return {
       id: activity.googleEventId || activity.id,
       localId: activity.id,
@@ -752,6 +847,14 @@ export class ActivityPostController {
       eventType: activity.eventType,
       source: activity.source,
       recurrence: activity.recurrence ?? null,
+      frecuencia,
+      repetition: {
+        frecuencia,
+        diasSemana: activity.repetition?.diasSemana ?? recurrenceInfo.diasSemana ?? null,
+        fechaInicio: activity.fechaInicio?.toISOString() ?? null,
+        fechaFin: activity.fechaFin?.toISOString() ?? null,
+        until: recurrenceInfo.until ?? null,
+      },
       recurringEventId: activity.recurringEventId,
       originalStartTime: activity.originalStartTime,
       reminders: activity.reminders ?? null,
@@ -846,6 +949,10 @@ export class ActivityPostController {
 
       const normalizedReminders = (bodyParams.reminders ?? bodyParams.remiders) as EventReminders | undefined;
       const normalizedRecurrence = this.buildGoogleRecurrence(bodyParams);
+      const normalizedFrecuencia = this.resolveLocalFrecuencia(
+        bodyParams.frecuencia ?? bodyParams.idFrecuencia,
+        normalizedRecurrence
+      );
       const normalizedTransparency = this.normalizeTransparency(bodyParams.transparency) ?? 'opaque';
       const normalizedPriority = this.normalizePriorityValue(
         bodyParams.prioridadValor ??
@@ -917,7 +1024,7 @@ export class ActivityPostController {
         horaFin: bodyParams.horaFin ?? this.parseHour(endDate),
         source: bodyParams.source ?? 'local',
         googleEventId: bodyParams.googleEventId ?? (typeof bodyParams.id === 'string' ? bodyParams.id : undefined),
-        frecuencia: bodyParams.frecuencia,
+        frecuencia: normalizedFrecuencia,
         prioridadValor: normalizedPriority,
       };
 
