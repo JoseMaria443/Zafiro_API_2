@@ -52,10 +52,46 @@ CREATE TABLE public.actividades_detalles (
 );
 CREATE OR REPLACE VIEW public.actividades_completa AS
 SELECT 
-  a.*,
-  COALESCE(ad.recurrence, a.recurrence) AS recurrence
+  a.id,
+  a.id_usuario,
+  a.id_etiqueta,
+  a.google_event_id,
+  a.google_calendar_id,
+  a.summary,
+  a.status,
+  a.start_datetime,
+  a.end_datetime,
+  a.start_timezone,
+  a.end_timezone,
+  a.start_date,
+  a.end_date,
+  a.created_at,
+  a.updated_at,
+  a.event_created,
+  a.event_updated,
+  a.transparency,
+  a.event_type,
+  a.recurring_event_id,
+  COALESCE(ad.recurrence, a.recurrence) AS recurrence,
+  a.frecuencia,
+  a.source,
+  a.last_synced_at,
+  COALESCE(
+    a.frecuencia::text,
+    CASE
+      WHEN COALESCE(ad.recurrence, a.recurrence)::text ILIKE '%FREQ=DAILY%' THEN 'diaria'
+      WHEN COALESCE(ad.recurrence, a.recurrence)::text ILIKE '%FREQ=WEEKLY%' THEN 'semanal'
+      WHEN COALESCE(ad.recurrence, a.recurrence)::text ILIKE '%FREQ=MONTHLY%' THEN 'mensual'
+      WHEN COALESCE(ad.recurrence, a.recurrence)::text ILIKE '%FREQ=YEARLY%' THEN 'anual'
+      ELSE NULL
+    END
+  ) AS frecuencia_resuelta,
+  e.id AS etiqueta_id,
+  e.nombre AS etiqueta_nombre,
+  e.color AS etiqueta_color
 FROM public.actividades a
-LEFT JOIN public.actividades_detalles ad ON a.id = ad.id_actividad;
+LEFT JOIN public.actividades_detalles ad ON a.id = ad.id_actividad
+LEFT JOIN public.etiquetas e ON a.id_etiqueta = e.id;
 CREATE TABLE public.ajustes_usuario (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   id_usuario uuid NOT NULL,
