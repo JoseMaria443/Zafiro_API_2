@@ -5,7 +5,6 @@
     "@types/node": "^25.3.0",
     "@types/pg": "^8.18.0",
     "ts-node-dev": "^2.0.0",
-    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
@@ -13,6 +12,7 @@
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "pg": "^8.19.0",
+    "tsx": "^4.21.0",
     "zod": "^4.3.6"
   },
   "scripts": {
