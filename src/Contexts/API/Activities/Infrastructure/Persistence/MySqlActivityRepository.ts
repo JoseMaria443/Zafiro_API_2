@@ -3,7 +3,7 @@ import type { IActivityRepository } from '../../Domain/ActivityRepository.js';
 import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 import { ActivityDetails } from '../../Domain/ActivityDetails.js';
 import { ActivityPriority, PriorityLevel } from '../../Domain/ActivityPriority.js';
-import type { EventDateTime, EventActor, EventReminders } from '../../Domain/Activity.js';
+import type { EventDateTime, EventReminders } from '../../Domain/Activity.js';
 
 export interface GoogleCalendarEventInput {
   id: string;
@@ -139,55 +139,6 @@ export class MySqlActivityRepository implements IActivityRepository {
     return undefined;
   }
 
-  private async upsertActivityDetails(client: any, activityId: string, activity: Activity): Promise<void> {
-    if (!activity.details) {
-      return;
-    }
-
-    await client.query(
-      `INSERT INTO actividades_detalles (
-         id_actividad,
-         description,
-         location,
-         html_link,
-         organizer_email,
-         organizer_display_name,
-         creator_email,
-         creator_display_name,
-         reminders_use_default,
-         reminders_overrides,
-         raw_payload,
-         updated_at
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
-       ON CONFLICT (id_actividad) DO UPDATE
-       SET description = EXCLUDED.description,
-           location = EXCLUDED.location,
-           html_link = EXCLUDED.html_link,
-           organizer_email = EXCLUDED.organizer_email,
-           organizer_display_name = EXCLUDED.organizer_display_name,
-           creator_email = EXCLUDED.creator_email,
-           creator_display_name = EXCLUDED.creator_display_name,
-           reminders_use_default = EXCLUDED.reminders_use_default,
-           reminders_overrides = EXCLUDED.reminders_overrides,
-           raw_payload = EXCLUDED.raw_payload,
-           updated_at = NOW()`,
-      [
-        activityId,
-        activity.details.description || null,
-        activity.details.location || null,
-        activity.htmlLink || null,
-        activity.organizer?.email || null,
-        activity.organizer?.displayName || null,
-        activity.creator?.email || null,
-        activity.creator?.displayName || null,
-        activity.reminders?.useDefault ?? true,
-        activity.reminders?.overrides ? JSON.stringify(activity.reminders.overrides) : null,
-        null,
-      ]
-    );
-  }
-
   private async replaceActivityPriority(client: any, activityId: string, activity: Activity): Promise<void> {
     await client.query('DELETE FROM prioridad WHERE id_actividad = $1', [activityId]);
 
@@ -204,6 +155,32 @@ export class MySqlActivityRepository implements IActivityRepository {
         activity.priority.color || this.defaultPriorityColor(activity.priority.valor),
       ]
     );
+  }
+
+  private async upsertActivityDetails(client: any, activityId: string, activity: Activity): Promise<void> {
+    // Check if details row exists
+    const existing = await client.query(
+      'SELECT id FROM actividades_detalles WHERE id_actividad = $1',
+      [activityId]
+    );
+
+    if (existing.rows.length > 0) {
+      // Update existing
+      await client.query(
+        `UPDATE actividades_detalles
+         SET description = $1,
+             updated_at = NOW()
+         WHERE id_actividad = $2`,
+        [activity.details.description || null, activityId]
+      );
+    } else {
+      // Insert new
+      await client.query(
+        `INSERT INTO actividades_detalles (id_actividad, description)
+         VALUES ($1, $2)`,
+        [activityId, activity.details.description || null]
+      );
+    }
   }
 
   async save(activity: Activity): Promise<void> {
@@ -268,8 +245,8 @@ export class MySqlActivityRepository implements IActivityRepository {
       const activityId = activityResult.rows[0]?.id;
 
       if (activityId) {
-        await this.upsertActivityDetails(client, activityId, activity);
         await this.replaceActivityPriority(client, activityId, activity);
+        await this.upsertActivityDetails(client, activityId, activity);
       }
 
       await client.query('COMMIT');
@@ -283,13 +260,13 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findById(id: string): Promise<Activity | null> {
     const result = await this.db.query(
       `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-                p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
-              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
+              p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color,
+              ad.description as detalle_description
        FROM actividades_completa ac
-       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
-        LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        WHERE ac.id = $1`,
       [id]
     );
@@ -304,13 +281,13 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findByGoogleEventId(googleEventId: string): Promise<Activity | null> {
     const result = await this.db.query(
       `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-                p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
-              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
+              p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color,
+              ad.description as detalle_description
        FROM actividades_completa ac
-       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
-        LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        WHERE ac.google_event_id = $1
        LIMIT 1`,
       [googleEventId]
@@ -326,13 +303,13 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findByUserId(idUsuario: string): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-                p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
-              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
+              p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color,
+              ad.description as detalle_description
        FROM actividades_completa ac
-       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
-        LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        WHERE ac.id_usuario = $1
        ORDER BY ac.event_created DESC`,
       [idUsuario]
@@ -346,13 +323,13 @@ export class MySqlActivityRepository implements IActivityRepository {
     
     const result = await this.db.query(
       `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
               p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
-              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color,
+              ad.description as detalle_description
        FROM actividades_completa ac
-       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
        LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        WHERE ac.id_usuario = $1 
          AND (ac.start_date = $2 OR DATE(ac.start_datetime) = $2)
        ORDER BY ac.start_datetime DESC`,
@@ -365,13 +342,13 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findByTagId(idEtiqueta: number): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
-                p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
-              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
+              p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color,
+              ad.description as detalle_description
        FROM actividades_completa ac
-       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
-        LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
        WHERE ac.id_etiqueta = $1
        ORDER BY ac.event_created DESC`,
       [idEtiqueta]
@@ -428,8 +405,8 @@ export class MySqlActivityRepository implements IActivityRepository {
         ]
       );
 
-      await this.upsertActivityDetails(client, activity.id, activity);
       await this.replaceActivityPriority(client, activity.id, activity);
+      await this.upsertActivityDetails(client, activity.id, activity);
 
       await client.query('COMMIT');
     } catch (error) {
@@ -542,37 +519,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       return;
     }
 
-    await this.db.query(
-      `INSERT INTO actividades_detalles (
-         id_actividad,
-         description,
-         location,
-         html_link,
-         organizer_email,
-         reminders_use_default,
-         reminders_overrides,
-         raw_payload
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       ON CONFLICT (id_actividad)
-       DO UPDATE SET
-         description = EXCLUDED.description,
-         location = EXCLUDED.location,
-         html_link = EXCLUDED.html_link,
-         organizer_email = EXCLUDED.organizer_email,
-         reminders_use_default = EXCLUDED.reminders_use_default,
-         reminders_overrides = EXCLUDED.reminders_overrides,
-         raw_payload = EXCLUDED.raw_payload`,
-      [
-        activityId,
-        event.description || null,
-        event.location || null,
-        event.htmlLink || null,
-        event.organizerEmail || null,
-        event.reminders?.useDefault ?? true,
-        event.reminders?.overrides ? JSON.stringify(event.reminders.overrides) : null,
-        event.rawPayload ? JSON.stringify(event.rawPayload) : null,
-      ]
-    );
+
   }
 
   private normalizeStatus(status?: string): 'confirmed' | 'tentative' | 'cancelled' {
@@ -646,11 +593,10 @@ export class MySqlActivityRepository implements IActivityRepository {
     };
 
     const details = new ActivityDetails(
-      Number(row.detalle_id || 1),
+      1,
       row.id?.toString() || '',
       row.summary || 'Sin título',
-      row.description || undefined,
-      row.location || undefined
+      row.detalle_description || undefined
     );
 
     let priority: ActivityPriority | undefined;
@@ -683,22 +629,9 @@ export class MySqlActivityRepository implements IActivityRepository {
       timeZone: row.end_timezone || 'UTC'
     };
 
-    const reminderOverrides =
-      typeof row.reminders_overrides === 'string'
-        ? (() => {
-            try {
-              return JSON.parse(row.reminders_overrides);
-            } catch {
-              return undefined;
-            }
-          })()
-        : row.reminders_overrides;
-
     const reminders = {
-      useDefault: row.reminders_use_default ?? true,
-      overrides: Array.isArray(reminderOverrides)
-        ? reminderOverrides
-        : undefined,
+      useDefault: true,
+      overrides: undefined,
     };
 
     const etiqueta = row.etiqueta_id
@@ -730,7 +663,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       row.id_etiqueta || undefined,
       'calendar#event',
       undefined,
-      row.html_link || undefined,
+      undefined,
       undefined,
       undefined,
       undefined,

@@ -793,6 +793,8 @@ export class ActivityPostController {
   }
 
   private async saveGoogleEventLink(activityId: string, idUsuario: string, googleEventId: string, htmlLink?: string): Promise<void> {
+    void htmlLink;
+
     await this.db.query(
       `UPDATE actividades
        SET google_event_id = $1,
@@ -802,16 +804,6 @@ export class ActivityPostController {
        WHERE id = $2 AND id_usuario = $3`,
       [googleEventId, activityId, idUsuario]
     );
-
-    if (htmlLink) {
-      await this.db.query(
-        `UPDATE actividades_detalles
-         SET html_link = COALESCE($1, html_link),
-             updated_at = NOW()
-         WHERE id_actividad = $2`,
-        [htmlLink, activityId]
-      );
-    }
   }
 
   private toCalendarEvent(activity: Activity): Record<string, unknown> {

@@ -22,10 +22,10 @@ CREATE TABLE public.actividades (
   transparency character varying,
   event_type character varying,
   recurring_event_id character varying,
-  recurrence text[],
-  frecuencia character varying,
   source character varying DEFAULT 'local'::character varying,
   last_synced_at timestamp with time zone,
+  recurrence ARRAY,
+  frecuencia USER-DEFINED,
   CONSTRAINT actividades_pkey PRIMARY KEY (id),
   CONSTRAINT fk_actividades_usuario FOREIGN KEY (id_usuario) REFERENCES public.usuarios(id),
   CONSTRAINT fk_actividades_etiqueta FOREIGN KEY (id_etiqueta) REFERENCES public.etiquetas(id)
@@ -34,13 +34,7 @@ CREATE TABLE public.actividades_detalles (
   id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
   id_actividad uuid NOT NULL,
   description text,
-  location character varying,
-  html_link text,
   ical_uid character varying,
-  organizer_email character varying,
-  organizer_display_name character varying,
-  creator_email character varying,
-  creator_display_name character varying,
   recurrence ARRAY,
   reminders_use_default boolean DEFAULT true,
   reminders_overrides jsonb,
@@ -50,48 +44,6 @@ CREATE TABLE public.actividades_detalles (
   CONSTRAINT actividades_detalles_pkey PRIMARY KEY (id),
   CONSTRAINT fk_actividades_detalles_actividad FOREIGN KEY (id_actividad) REFERENCES public.actividades(id)
 );
-CREATE OR REPLACE VIEW public.actividades_completa AS
-SELECT 
-  a.id,
-  a.id_usuario,
-  a.id_etiqueta,
-  a.google_event_id,
-  a.google_calendar_id,
-  a.summary,
-  a.status,
-  a.start_datetime,
-  a.end_datetime,
-  a.start_timezone,
-  a.end_timezone,
-  a.start_date,
-  a.end_date,
-  a.created_at,
-  a.updated_at,
-  a.event_created,
-  a.event_updated,
-  a.transparency,
-  a.event_type,
-  a.recurring_event_id,
-  COALESCE(ad.recurrence, a.recurrence) AS recurrence,
-  a.frecuencia,
-  a.source,
-  a.last_synced_at,
-  COALESCE(
-    a.frecuencia::text,
-    CASE
-      WHEN COALESCE(ad.recurrence, a.recurrence)::text ILIKE '%FREQ=DAILY%' THEN 'diaria'
-      WHEN COALESCE(ad.recurrence, a.recurrence)::text ILIKE '%FREQ=WEEKLY%' THEN 'semanal'
-      WHEN COALESCE(ad.recurrence, a.recurrence)::text ILIKE '%FREQ=MONTHLY%' THEN 'mensual'
-      WHEN COALESCE(ad.recurrence, a.recurrence)::text ILIKE '%FREQ=YEARLY%' THEN 'anual'
-      ELSE NULL
-    END
-  ) AS frecuencia_resuelta,
-  e.id AS etiqueta_id,
-  e.nombre AS etiqueta_nombre,
-  e.color AS etiqueta_color
-FROM public.actividades a
-LEFT JOIN public.actividades_detalles ad ON a.id = ad.id_actividad
-LEFT JOIN public.etiquetas e ON a.id_etiqueta = e.id;
 CREATE TABLE public.ajustes_usuario (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   id_usuario uuid NOT NULL,
@@ -156,5 +108,7 @@ CREATE TABLE public.usuarios (
   token_google character varying,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  google_reminders_use_default boolean,
+  google_reminders_overrides jsonb,
   CONSTRAINT usuarios_pkey PRIMARY KEY (id)
 );
