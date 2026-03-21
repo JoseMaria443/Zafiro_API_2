@@ -41,6 +41,8 @@ export const createApp = (): Express => {
       .filter((origin) => origin.length > 0);
   };
 
+
+  //dasdasdass
   const allowedOrigins = parseAllowedOrigins();
   
   // Middleware de autenticación
