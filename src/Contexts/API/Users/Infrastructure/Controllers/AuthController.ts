@@ -691,19 +691,43 @@ export class AuthController {
   }
 
   private resolveBypassProfile(req: Request): { clerkUserId: string; correo: string; nombre: string } {
+    const body = req.body as
+      | {
+          clerkUserId?: unknown;
+          correo?: unknown;
+          email?: unknown;
+          nombre?: unknown;
+        }
+      | undefined;
+
+    const bodyClerkUserId = typeof body?.clerkUserId === 'string' && body.clerkUserId.trim().length > 0
+      ? body.clerkUserId.trim()
+      : undefined;
+    const bodyCorreo = typeof body?.correo === 'string' && body.correo.trim().length > 0
+      ? body.correo.trim()
+      : typeof body?.email === 'string' && body.email.trim().length > 0
+        ? body.email.trim()
+        : undefined;
+    const bodyNombre = typeof body?.nombre === 'string' && body.nombre.trim().length > 0
+      ? body.nombre.trim()
+      : undefined;
+
     const clerkUserId =
       this.readStringHeader(req.headers['x-test-clerk-user-id']) ||
+      bodyClerkUserId ||
       process.env.AUTH_BYPASS_CLERK_USER_ID ||
       process.env.TEST_CLERK_USER_ID ||
       'test-clerk-user-id';
 
     const correo =
       this.readStringHeader(req.headers['x-test-user-email']) ||
+      bodyCorreo ||
       process.env.AUTH_BYPASS_EMAIL ||
       'test@local.dev';
 
     const nombre =
       this.readStringHeader(req.headers['x-test-user-name']) ||
+      bodyNombre ||
       process.env.AUTH_BYPASS_NAME ||
       'Usuario de prueba';
 
