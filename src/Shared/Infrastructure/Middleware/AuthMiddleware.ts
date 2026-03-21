@@ -15,10 +15,7 @@ export class AuthMiddleware {
   }
 
   private shouldBypassAuth(): boolean {
-    const bypassEnabled = this.isTruthy(process.env.AUTH_BYPASS_ENABLED);
-    const isProduction = (process.env.NODE_ENV || '').toLowerCase() === 'production';
-
-    return bypassEnabled && !isProduction;
+    return this.isTruthy(process.env.AUTH_BYPASS_ENABLED);
   }
 
   private readStringHeader(value: string | string[] | undefined): string | undefined {
@@ -61,7 +58,7 @@ export class AuthMiddleware {
   async authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
     if (this.shouldBypassAuth()) {
       if (!this.bypassWarningShown) {
-        console.warn('⚠️ [AUTH] AUTH_BYPASS_ENABLED activo (solo desarrollo/pruebas).');
+        console.warn('⚠️ [AUTH] AUTH_BYPASS_ENABLED activo. Se omite validación de token.');
         this.bypassWarningShown = true;
       }
 

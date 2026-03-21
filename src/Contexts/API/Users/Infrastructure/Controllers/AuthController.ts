@@ -105,7 +105,9 @@ export class AuthController {
   async loginSession(req: Request, res: Response): Promise<void> {
     try {
       const tokenFromHeader = this.extractBearerToken(req.headers.authorization);
-      if (!tokenFromHeader && !this.isAuthBypassEnabled()) {
+      const bypassEnabled = this.isAuthBypassEnabled();
+
+      if (!tokenFromHeader && !bypassEnabled) {
         res.status(400).json({
           success: false,
           message: 'Authorization Bearer token requerido',
@@ -113,9 +115,9 @@ export class AuthController {
         return;
       }
 
-      const session = tokenFromHeader
-        ? await this.loginUserUseCase.execute(tokenFromHeader)
-        : await this.loginBypassUser(req);
+      const session = bypassEnabled
+        ? await this.loginBypassUser(req)
+        : await this.loginUserUseCase.execute(tokenFromHeader as string);
 
       res.status(200).json({
         success: true,
@@ -143,7 +145,9 @@ export class AuthController {
   async registerSession(req: Request, res: Response): Promise<void> {
     try {
       const tokenFromHeader = this.extractBearerToken(req.headers.authorization);
-      if (!tokenFromHeader && !this.isAuthBypassEnabled()) {
+      const bypassEnabled = this.isAuthBypassEnabled();
+
+      if (!tokenFromHeader && !bypassEnabled) {
         res.status(400).json({
           success: false,
           message: 'Authorization Bearer token requerido',
@@ -151,9 +155,9 @@ export class AuthController {
         return;
       }
 
-      const session = tokenFromHeader
-        ? await this.loginUserUseCase.execute(tokenFromHeader)
-        : await this.loginBypassUser(req);
+      const session = bypassEnabled
+        ? await this.loginBypassUser(req)
+        : await this.loginUserUseCase.execute(tokenFromHeader as string);
 
       if (!session.isNewUser) {
         res.status(200).json({
@@ -670,10 +674,7 @@ export class AuthController {
   }
 
   private isAuthBypassEnabled(): boolean {
-    const bypassEnabled = this.isTruthy(process.env.AUTH_BYPASS_ENABLED);
-    const isProduction = (process.env.NODE_ENV || '').toLowerCase() === 'production';
-
-    return bypassEnabled && !isProduction;
+    return this.isTruthy(process.env.AUTH_BYPASS_ENABLED);
   }
 
   private readStringHeader(value: string | string[] | undefined): string | undefined {
