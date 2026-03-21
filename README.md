@@ -2,13 +2,15 @@
 
 API REST construida con Node.js, TypeScript y Express para gestionar usuarios, actividades, etiquetas, prioridades e integración con Google Calendar.
 
+**Documentación de Testing**: Lee [TESTING.md](./TESTING.md) para instrucciones detalladas de pruebas con Postman e integración.
+
 ## Stack
 
-- Node.js
-- TypeScript
-- Express
-- PostgreSQL (pg)
-- Clerk (autenticación)
+- Node.js 18+
+- TypeScript 5.9+
+- Express 5.2+
+- PostgreSQL (pg 8.19+)
+- Clerk (autenticación) - Opcional con AUTH_BYPASS_ENABLED
 - Google Calendar API
 
 ## Arquitectura
@@ -51,8 +53,53 @@ AUTH_BYPASS_NAME=Usuario de prueba
 
 npm run dev
 
+## 🧪 Testing
 
-## Endpoints importantes
+### Opción 1: Postman (Recomendado para desarrollo)
+
+1. **Importar colección:**
+   - Abre **Postman**
+   - Haz clic en **Import**
+   - Carga: `postman/Zafiro_API.postman_collection.json`
+   - Carga ambiente: `postman/Zafiro_API.local.postman_environment.json`
+
+2. **Ejecutar pruebas:**
+   ```bash
+   # Con Newman (CLI de Postman)
+   npm install -g newman
+   ./test.sh postman  # O .\test.ps1 -mode postman (Windows)
+   ```
+
+3. **O manualmente en Postman:**
+   - Selecciona ambiente: **Zafiro API - Local**
+   - Ejecuta requests en orden (auth → activities → tags → etc)
+   - Verifica respuestas y tests en cada request
+
+**Documentación completa**: [TESTING.md](./TESTING.md)
+
+### Opción 2: Integration Tests (Jest)
+
+```bash
+# Ejecutar tests
+npm test
+
+# O con script
+./test.sh integration  # Mac/Linux
+.\test.ps1 -mode integration  # Windows
+
+# Con coverage
+npm test -- --coverage
+```
+
+### Opción 3: Ambos modos
+
+```bash
+./test.sh all        # Mac/Linux - ejecuta Postman + Integration
+.\test.ps1 all       # Windows
+```
+
+
+
 
 ### Salud
 

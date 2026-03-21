@@ -964,19 +964,6 @@ export class ActivityPostController {
         return;
       }
 
-      // Se exige conexión activa para que create quede sincronizado a Google Calendar.
-      if (bodyParams.source !== 'google') {
-        const connection = await this.getGoogleConnectionByUserId(resolvedUserId);
-        if (!connection || !connection.isActive) {
-          res.status(409).json({
-            success: false,
-            message:
-              'Para crear actividades desde la app se requiere Google Calendar conectado. Ejecuta /api/integrations/google/connect primero.',
-          });
-          return;
-        }
-      }
-
       const request: CreateActivityRequest = {
         id: resolvedActivityId,
         idUsuario: resolvedUserId,
