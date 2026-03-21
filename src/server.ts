@@ -21,13 +21,18 @@ const server = app.listen(Number(PORT), '0.0.0.0', () => {
   // Verificar configuración
   const clerkConfigured = !!process.env.CLERK_SECRET_KEY;
   const dbConfigured = !!process.env.DATABASE_URL;
+  const authBypassEnabled = ['1', 'true', 'yes', 'on'].includes((process.env.AUTH_BYPASS_ENABLED || '').toLowerCase());
   
   console.log('🔧 Estado de configuración:');
   console.log(`   ${clerkConfigured ? '✅' : '❌'} CLERK_SECRET_KEY ${clerkConfigured ? 'configurada' : 'FALTANTE'}`);
   console.log(`   ${dbConfigured ? '✅' : '❌'} DATABASE_URL ${dbConfigured ? 'configurada' : 'FALTANTE'}`);
+  console.log(`   ${authBypassEnabled ? '⚠️' : '✅'} AUTH_BYPASS_ENABLED ${authBypassEnabled ? 'ACTIVO' : 'desactivado'}`);
   
   if (!clerkConfigured) {
     console.log('\n WARNING: CLERK_SECRET_KEY no configurada - Login no funcionará');
+  }
+  if (authBypassEnabled) {
+    console.log(' WARNING: AUTH_BYPASS_ENABLED activo - endpoints protegidos NO validan token de Clerk');
   }
   if (!dbConfigured) {
     console.log('\n WARNING: DATABASE_URL no configurada - Base de datos no funcionará');

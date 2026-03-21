@@ -105,7 +105,7 @@ export class AuthController {
   async loginSession(req: Request, res: Response): Promise<void> {
     try {
       const tokenFromHeader = this.extractBearerToken(req.headers.authorization);
-      if (!tokenFromHeader) {
+      if (!tokenFromHeader && !this.isAuthBypassEnabled()) {
         res.status(400).json({
           success: false,
           message: 'Authorization Bearer token requerido',
@@ -113,17 +113,19 @@ export class AuthController {
         return;
       }
 
-      const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
+      const session = tokenFromHeader
+        ? await this.loginUserUseCase.execute(tokenFromHeader)
+        : await this.loginBypassUser(req);
 
       res.status(200).json({
         success: true,
-        message: isNewUser ? 'Usuario creado y sesión iniciada' : 'Sesión iniciada correctamente',
+        message: session.isNewUser ? 'Usuario creado y sesión iniciada' : 'Sesión iniciada correctamente',
         data: {
-          id: user.id,
-          clerkUserId: user.clerkUserId,
-          correo: user.correo,
-          nombre: user.nombre,
-          isNewUser,
+          id: session.user.id,
+          clerkUserId: session.user.clerkUserId,
+          correo: session.user.correo,
+          nombre: session.user.nombre,
+          isNewUser: session.isNewUser,
         },
       });
     } catch (error) {
@@ -141,7 +143,7 @@ export class AuthController {
   async registerSession(req: Request, res: Response): Promise<void> {
     try {
       const tokenFromHeader = this.extractBearerToken(req.headers.authorization);
-      if (!tokenFromHeader) {
+      if (!tokenFromHeader && !this.isAuthBypassEnabled()) {
         res.status(400).json({
           success: false,
           message: 'Authorization Bearer token requerido',
@@ -149,18 +151,20 @@ export class AuthController {
         return;
       }
 
-      const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
+      const session = tokenFromHeader
+        ? await this.loginUserUseCase.execute(tokenFromHeader)
+        : await this.loginBypassUser(req);
 
-      if (!isNewUser) {
+      if (!session.isNewUser) {
         res.status(200).json({
           success: true,
           message: 'La cuenta ya existía; sesión iniciada correctamente',
           data: {
-            id: user.id,
-            clerkUserId: user.clerkUserId,
-            correo: user.correo,
-            nombre: user.nombre,
-            isNewUser,
+            id: session.user.id,
+            clerkUserId: session.user.clerkUserId,
+            correo: session.user.correo,
+            nombre: session.user.nombre,
+            isNewUser: session.isNewUser,
           },
         });
         return;
@@ -170,11 +174,11 @@ export class AuthController {
         success: true,
         message: 'Cuenta creada y sesión iniciada correctamente',
         data: {
-          id: user.id,
-          clerkUserId: user.clerkUserId,
-          correo: user.correo,
-          nombre: user.nombre,
-          isNewUser,
+          id: session.user.id,
+          clerkUserId: session.user.clerkUserId,
+          correo: session.user.correo,
+          nombre: session.user.nombre,
+          isNewUser: session.isNewUser,
         },
       });
     } catch (error) {
@@ -655,6 +659,70 @@ export class AuthController {
     }
 
     return undefined;
+  }
+
+  private isTruthy(value?: string): boolean {
+    if (!value) {
+      return false;
+    }
+
+    return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
+  }
+
+  private isAuthBypassEnabled(): boolean {
+    const bypassEnabled = this.isTruthy(process.env.AUTH_BYPASS_ENABLED);
+    const isProduction = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+
+    return bypassEnabled && !isProduction;
+  }
+
+  private readStringHeader(value: string | string[] | undefined): string | undefined {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+
+    if (Array.isArray(value)) {
+      const first = value.find((entry) => typeof entry === 'string' && entry.trim().length > 0);
+      return typeof first === 'string' ? first.trim() : undefined;
+    }
+
+    return undefined;
+  }
+
+  private resolveBypassProfile(req: Request): { clerkUserId: string; correo: string; nombre: string } {
+    const clerkUserId =
+      this.readStringHeader(req.headers['x-test-clerk-user-id']) ||
+      process.env.AUTH_BYPASS_CLERK_USER_ID ||
+      process.env.TEST_CLERK_USER_ID ||
+      'test-clerk-user-id';
+
+    const correo =
+      this.readStringHeader(req.headers['x-test-user-email']) ||
+      process.env.AUTH_BYPASS_EMAIL ||
+      'test@local.dev';
+
+    const nombre =
+      this.readStringHeader(req.headers['x-test-user-name']) ||
+      process.env.AUTH_BYPASS_NAME ||
+      'Usuario de prueba';
+
+    return { clerkUserId, correo, nombre };
+  }
+
+  private async loginBypassUser(req: Request): Promise<{ user: User; isNewUser: boolean }> {
+    const profile = this.resolveBypassProfile(req);
+    const existingUser = await this.userRepository.findByClerkUserId(profile.clerkUserId);
+
+    const user = await this.userRepository.findOrCreateByClerkProfile(
+      profile.clerkUserId,
+      profile.correo,
+      profile.nombre
+    );
+
+    return {
+      user,
+      isNewUser: !existingUser,
+    };
   }
 
   private extractBearerToken(authHeader?: string): string | null {

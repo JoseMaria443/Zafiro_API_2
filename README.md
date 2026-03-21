@@ -38,6 +38,15 @@ npm install
 PORT=3000
 NODE_ENV=development
 
+# Opcional para pruebas locales sin token de Clerk (NO usar en producción)
+AUTH_BYPASS_ENABLED=true
+AUTH_BYPASS_CLERK_USER_ID=tu-clerk-user-id-existente
+AUTH_BYPASS_EMAIL=test@local.dev
+AUTH_BYPASS_NAME=Usuario de prueba
+
+# También puedes sobreescribir por request con headers:
+# x-test-clerk-user-id, x-test-user-email, x-test-user-name
+
 4. Levantar el servidor
 
 npm run dev
