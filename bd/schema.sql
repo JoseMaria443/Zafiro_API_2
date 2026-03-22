@@ -22,10 +22,10 @@ CREATE TABLE public.actividades (
   transparency character varying,
   event_type character varying,
   recurring_event_id character varying,
-  recurrence text[],
-  frecuencia character varying,
   source character varying DEFAULT 'local'::character varying,
   last_synced_at timestamp with time zone,
+  recurrence ARRAY,
+  frecuencia USER-DEFINED,
   CONSTRAINT actividades_pkey PRIMARY KEY (id),
   CONSTRAINT fk_actividades_usuario FOREIGN KEY (id_usuario) REFERENCES public.usuarios(id),
   CONSTRAINT fk_actividades_etiqueta FOREIGN KEY (id_etiqueta) REFERENCES public.etiquetas(id)
@@ -34,13 +34,7 @@ CREATE TABLE public.actividades_detalles (
   id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
   id_actividad uuid NOT NULL,
   description text,
-  location character varying,
-  html_link text,
   ical_uid character varying,
-  organizer_email character varying,
-  organizer_display_name character varying,
-  creator_email character varying,
-  creator_display_name character varying,
   recurrence ARRAY,
   reminders_use_default boolean DEFAULT true,
   reminders_overrides jsonb,
@@ -50,12 +44,6 @@ CREATE TABLE public.actividades_detalles (
   CONSTRAINT actividades_detalles_pkey PRIMARY KEY (id),
   CONSTRAINT fk_actividades_detalles_actividad FOREIGN KEY (id_actividad) REFERENCES public.actividades(id)
 );
-CREATE OR REPLACE VIEW public.actividades_completa AS
-SELECT 
-  a.*,
-  COALESCE(ad.recurrence, a.recurrence) AS recurrence
-FROM public.actividades a
-LEFT JOIN public.actividades_detalles ad ON a.id = ad.id_actividad;
 CREATE TABLE public.ajustes_usuario (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   id_usuario uuid NOT NULL,
@@ -120,5 +108,7 @@ CREATE TABLE public.usuarios (
   token_google character varying,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  google_reminders_use_default boolean,
+  google_reminders_overrides jsonb,
   CONSTRAINT usuarios_pkey PRIMARY KEY (id)
 );

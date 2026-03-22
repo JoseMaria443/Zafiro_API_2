@@ -6,7 +6,6 @@ import {
 } from '../Domain/Activity.js';
 import { ActivityDetails } from '../Domain/ActivityDetails.js';
 import { ActivityPriority, PriorityLevel } from '../Domain/ActivityPriority.js';
-import { Repetition } from '../Domain/Repetition.js';
 import type { IActivityRepository } from '../Domain/ActivityRepository.js';
 
 export interface CreateActivityRequest {
@@ -30,7 +29,6 @@ export interface CreateActivityRequest {
   status?: 'confirmed' | 'tentative' | 'cancelled';
   detailsId?: number;
   description?: string;
-  location?: string;
   idEtiqueta?: number;
   recurringEventId?: string;
   originalStartTime?: EventDateTime;
@@ -38,13 +36,6 @@ export interface CreateActivityRequest {
   etiqueta?: Record<string, unknown>;
   prioridad?: Record<string, unknown>;
   priorityId?: number;
-  prioridadNivel?: PriorityLevel;
-  color?: string;
-  repetitionId?: number;
-  idFrecuencia?: number;
-  diasSemana?: string;
-  fechaInicio?: Date;
-  fechaFin?: Date;
   // RF-03 Fields
   horaInicio?: number;
   horaFin?: number;
@@ -67,10 +58,6 @@ export class CreateActivityUseCase {
     }
 
     return '#2FA941';
-  }
-
-  private defaultWeekDays(): string {
-    return 'MON,TUE,WED,THU,FRI,SAT,SUN';
   }
 
   private toPriorityLevel(
@@ -104,8 +91,7 @@ export class CreateActivityUseCase {
       detailsId,
       request.id,
       request.summary,
-      request.description,
-      request.location
+      request.description
     );
 
     let priority: ActivityPriority | undefined;
@@ -116,26 +102,6 @@ export class CreateActivityUseCase {
         request.id,
         priorityLevel,
         request.color || this.defaultPriorityColor(priorityLevel)
-      );
-    }
-
-    let repetition: Repetition | undefined;
-    if (
-      request.idFrecuencia &&
-      request.fechaInicio &&
-      request.fechaFin
-    ) {
-      const diasSemana =
-        typeof request.diasSemana === 'string' && request.diasSemana.trim().length > 0
-          ? request.diasSemana.trim()
-          : this.defaultWeekDays();
-      repetition = new Repetition(
-        1, // Use fixed ID for now
-        request.id, // Activity ID (string), not detailsId
-        request.idFrecuencia,
-        diasSemana,
-        request.fechaInicio,
-        request.fechaFin
       );
     }
 
@@ -170,7 +136,6 @@ export class CreateActivityUseCase {
       request.etiqueta,
       request.prioridad,
       priority,
-      repetition,
       // RF-03 Fields
       request.fechaInicio,
       request.fechaFin,

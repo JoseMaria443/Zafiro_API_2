@@ -8,7 +8,6 @@ import type { EventActor, EventDateTime, EventReminders } from '../../Domain/Act
 import { Activity } from '../../Domain/Activity.js';
 import { ActivityDetails } from '../../Domain/ActivityDetails.js';
 import { ActivityPriority, PriorityLevel } from '../../Domain/ActivityPriority.js';
-import { Repetition } from '../../Domain/Repetition.js';
 import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
 
 interface GoogleConnectionRecord {
@@ -364,10 +363,6 @@ export class ActivityPostController {
       payload.description = activity.details.description;
     }
 
-    if (activity.details.location) {
-      payload.location = activity.details.location;
-    }
-
     if (activity.recurrence && activity.recurrence.length > 0) {
       payload.recurrence = activity.recurrence;
     }
@@ -482,47 +477,6 @@ export class ActivityPostController {
     }
 
     return undefined;
-  }
-
-  private resolveUpdatedRepetition(
-    existing: Activity,
-    bodyParams: Record<string, any>
-  ): { repetition?: Repetition; fechaInicio?: Date; fechaFin?: Date } {
-    const hasRepetitionPayload =
-      Object.prototype.hasOwnProperty.call(bodyParams, 'idFrecuencia') ||
-      Object.prototype.hasOwnProperty.call(bodyParams, 'diasSemana') ||
-      Object.prototype.hasOwnProperty.call(bodyParams, 'fechaInicio') ||
-      Object.prototype.hasOwnProperty.call(bodyParams, 'fechaFin');
-
-    if (!hasRepetitionPayload) {
-      return {
-        repetition: existing.repetition,
-        fechaInicio: existing.fechaInicio,
-        fechaFin: existing.fechaFin,
-      };
-    }
-
-    const idFrecuencia = this.parseFrequencyId(bodyParams.idFrecuencia) ?? existing.repetition?.idFrecuencia;
-    const diasSemana =
-      typeof bodyParams.diasSemana === 'string' && bodyParams.diasSemana.trim().length > 0
-        ? bodyParams.diasSemana.trim()
-        : existing.repetition?.diasSemana ?? this.defaultWeekDays();
-    const fechaInicio = this.parseDateValue(bodyParams.fechaInicio) ?? existing.repetition?.fechaInicio;
-    const fechaFin = this.parseDateValue(bodyParams.fechaFin) ?? existing.repetition?.fechaFin;
-
-    if (idFrecuencia && fechaInicio && fechaFin) {
-      return {
-        repetition: new Repetition(1, existing.id, idFrecuencia, diasSemana, fechaInicio, fechaFin),
-        fechaInicio,
-        fechaFin,
-      };
-    }
-
-    return {
-      repetition: undefined,
-      fechaInicio: undefined,
-      fechaFin: undefined,
-    };
   }
 
   private async getGoogleConnectionByUserId(idUsuario: string): Promise<GoogleConnectionRecord | null> {
@@ -730,7 +684,6 @@ export class ActivityPostController {
       existing.frecuencia;
     const normalizedTransparency =
       this.normalizeTransparency(bodyParams.transparency) ?? existing.transparency ?? 'opaque';
-    const repetitionUpdate = this.resolveUpdatedRepetition(existing, bodyParams);
     const updatedCategoryId = this.resolveUpdatedCategoryId(existing, bodyParams);
     const updatedPriority = this.resolveUpdatedPriority(existing, bodyParams);
     const start = this.keepExistingTimeZone(
@@ -750,8 +703,7 @@ export class ActivityPostController {
       existing.details.id,
       existing.id,
       summary,
-      bodyParams.description ?? existing.details.description,
-      bodyParams.location ?? existing.details.location
+      bodyParams.description ?? existing.details.description
     );
 
     return new Activity(
@@ -781,9 +733,6 @@ export class ActivityPostController {
       bodyParams.etiqueta ?? existing.etiqueta,
       bodyParams.prioridad ?? existing.prioridad,
       updatedPriority,
-      repetitionUpdate.repetition,
-      repetitionUpdate.fechaInicio,
-      repetitionUpdate.fechaFin,
       bodyParams.horaInicio ?? existing.horaInicio ?? this.parseHour(start),
       bodyParams.horaFin ?? existing.horaFin ?? this.parseHour(end),
       bodyParams.source ?? existing.source,
@@ -802,16 +751,6 @@ export class ActivityPostController {
        WHERE id = $2 AND id_usuario = $3`,
       [googleEventId, activityId, idUsuario]
     );
-
-    if (htmlLink) {
-      await this.db.query(
-        `UPDATE actividades_detalles
-         SET html_link = COALESCE($1, html_link),
-             updated_at = NOW()
-         WHERE id_actividad = $2`,
-        [htmlLink, activityId]
-      );
-    }
   }
 
   private toCalendarEvent(activity: Activity): Record<string, unknown> {
@@ -840,7 +779,6 @@ export class ActivityPostController {
       start: activity.start,
       end: activity.end,
       description: activity.details.description ?? null,
-      location: activity.details.location ?? null,
       iCalUID: activity.iCalUID,
       sequence: activity.sequence,
       transparency: activity.transparency ?? 'opaque',
@@ -850,7 +788,7 @@ export class ActivityPostController {
       frecuencia,
       repetition: {
         frecuencia,
-        diasSemana: activity.repetition?.diasSemana ?? recurrenceInfo.diasSemana ?? null,
+        diasSemana: recurrenceInfo.diasSemana ?? null,
         fechaInicio: activity.fechaInicio?.toISOString() ?? null,
         fechaFin: activity.fechaFin?.toISOString() ?? null,
         until: recurrenceInfo.until ?? null,

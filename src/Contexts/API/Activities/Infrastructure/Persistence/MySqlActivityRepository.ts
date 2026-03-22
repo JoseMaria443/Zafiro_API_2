@@ -148,26 +148,18 @@ export class MySqlActivityRepository implements IActivityRepository {
       `INSERT INTO actividades_detalles (
          id_actividad,
          description,
-         location,
-         html_link,
-         organizer_email,
-         organizer_display_name,
-         creator_email,
-         creator_display_name,
+         ical_uid,
+         recurrence,
          reminders_use_default,
          reminders_overrides,
          raw_payload,
          updated_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        ON CONFLICT (id_actividad) DO UPDATE
        SET description = EXCLUDED.description,
-           location = EXCLUDED.location,
-           html_link = EXCLUDED.html_link,
-           organizer_email = EXCLUDED.organizer_email,
-           organizer_display_name = EXCLUDED.organizer_display_name,
-           creator_email = EXCLUDED.creator_email,
-           creator_display_name = EXCLUDED.creator_display_name,
+           ical_uid = EXCLUDED.ical_uid,
+           recurrence = EXCLUDED.recurrence,
            reminders_use_default = EXCLUDED.reminders_use_default,
            reminders_overrides = EXCLUDED.reminders_overrides,
            raw_payload = EXCLUDED.raw_payload,
@@ -175,12 +167,8 @@ export class MySqlActivityRepository implements IActivityRepository {
       [
         activityId,
         activity.details.description || null,
-        activity.details.location || null,
-        activity.htmlLink || null,
-        activity.organizer?.email || null,
-        activity.organizer?.displayName || null,
-        activity.creator?.email || null,
-        activity.creator?.displayName || null,
+        activity.iCalUID || null,
+        activity.recurrence ? JSON.stringify(activity.recurrence) : null,
         activity.reminders?.useDefault ?? true,
         activity.reminders?.overrides ? JSON.stringify(activity.reminders.overrides) : null,
         null,
@@ -283,7 +271,7 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findById(id: string): Promise<Activity | null> {
     const result = await this.db.query(
       `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
+              ad.id as detalle_id, ad.description, ad.reminders_use_default, ad.reminders_overrides,
                 p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
               e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
@@ -304,7 +292,7 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findByGoogleEventId(googleEventId: string): Promise<Activity | null> {
     const result = await this.db.query(
       `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
+              ad.id as detalle_id, ad.description, ad.reminders_use_default, ad.reminders_overrides,
                 p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
               e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
@@ -326,7 +314,7 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findByUserId(idUsuario: string): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
+              ad.id as detalle_id, ad.description, ad.reminders_use_default, ad.reminders_overrides,
                 p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
               e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
@@ -346,7 +334,7 @@ export class MySqlActivityRepository implements IActivityRepository {
     
     const result = await this.db.query(
       `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
+              ad.id as detalle_id, ad.description, ad.reminders_use_default, ad.reminders_overrides,
               p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
               e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
@@ -365,7 +353,7 @@ export class MySqlActivityRepository implements IActivityRepository {
   async findByTagId(idEtiqueta: number): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.location, ad.html_link, ad.reminders_use_default, ad.reminders_overrides,
+              ad.id as detalle_id, ad.description, ad.reminders_use_default, ad.reminders_overrides,
                 p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
               e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
        FROM actividades_completa ac
@@ -546,28 +534,25 @@ export class MySqlActivityRepository implements IActivityRepository {
       `INSERT INTO actividades_detalles (
          id_actividad,
          description,
-         location,
-         html_link,
-         organizer_email,
+         ical_uid,
+         recurrence,
          reminders_use_default,
          reminders_overrides,
          raw_payload
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (id_actividad)
        DO UPDATE SET
          description = EXCLUDED.description,
-         location = EXCLUDED.location,
-         html_link = EXCLUDED.html_link,
-         organizer_email = EXCLUDED.organizer_email,
+         ical_uid = EXCLUDED.ical_uid,
+         recurrence = EXCLUDED.recurrence,
          reminders_use_default = EXCLUDED.reminders_use_default,
          reminders_overrides = EXCLUDED.reminders_overrides,
          raw_payload = EXCLUDED.raw_payload`,
       [
         activityId,
         event.description || null,
-        event.location || null,
-        event.htmlLink || null,
-        event.organizerEmail || null,
+        event.iCalUID || null,
+        event.recurrence ? JSON.stringify(event.recurrence) : null,
         event.reminders?.useDefault ?? true,
         event.reminders?.overrides ? JSON.stringify(event.reminders.overrides) : null,
         event.rawPayload ? JSON.stringify(event.rawPayload) : null,
@@ -730,7 +715,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       row.id_etiqueta || undefined,
       'calendar#event',
       undefined,
-      row.html_link || undefined,
+      undefined,
       undefined,
       undefined,
       undefined,

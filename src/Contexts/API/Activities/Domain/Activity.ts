@@ -1,6 +1,5 @@
 import { ActivityDetails } from './ActivityDetails.js';
 import { ActivityPriority } from './ActivityPriority.js';
-import { Repetition } from './Repetition.js';
 
 export interface EventDateTime {
   dateTime?: string;
@@ -51,7 +50,6 @@ export class Activity {
   readonly status: string;
   readonly details: ActivityDetails;
   readonly priority?: ActivityPriority;
-  readonly repetition?: Repetition;
   // RF-03 Fields
   readonly fechaInicio?: Date; // Start date (format: YYYY-MM-DD)
   readonly fechaFin?: Date; // End date (format: YYYY-MM-DD)
@@ -88,7 +86,6 @@ export class Activity {
     etiqueta?: Record<string, unknown>,
     prioridad?: Record<string, unknown>,
     priority?: ActivityPriority,
-    repetition?: Repetition,
     // RF-03 Parameters
     fechaInicio?: Date,
     fechaFin?: Date,
@@ -169,7 +166,6 @@ export class Activity {
     this.prioridad = prioridad;
     this.details = details;
     this.priority = priority;
-    this.repetition = repetition;
     // RF-03 Fields
     this.fechaInicio = fechaInicio;
     this.fechaFin = fechaFin;
@@ -181,9 +177,6 @@ export class Activity {
   }
 
   isWithinDateRange(date: Date): boolean {
-    if (this.repetition) {
-      return this.repetition.isActive(date);
-    }
     return true;
   }
 }
