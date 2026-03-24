@@ -43,6 +43,13 @@ export interface CreateActivityRequest {
   googleEventId?: string;
   frecuencia?: 'diaria' | 'semanal' | 'mensual' | 'anual';
   prioridadValor?: 'baja' | 'media' | 'alta';
+  prioridadNivel?: PriorityLevel;
+  color?: string;
+  fechaInicio?: Date;
+  fechaFin?: Date;
+  location?: string;
+  repetitionId?: number;
+  idFrecuencia?: number;
 }
 
 export class CreateActivityUseCase {
@@ -91,7 +98,8 @@ export class CreateActivityUseCase {
       detailsId,
       request.id,
       request.summary,
-      request.description
+      request.description,
+      request.location
     );
 
     let priority: ActivityPriority | undefined;

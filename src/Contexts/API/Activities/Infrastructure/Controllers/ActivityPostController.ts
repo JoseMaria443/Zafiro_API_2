@@ -809,6 +809,8 @@ export class ActivityPostController {
       bodyParams.etiqueta ?? existing.etiqueta,
       bodyParams.prioridad ?? existing.prioridad,
       updatedPriority,
+      bodyParams.fechaInicio ? new Date(bodyParams.fechaInicio) : existing.fechaInicio,
+      bodyParams.fechaFin ? new Date(bodyParams.fechaFin) : existing.fechaFin,
       bodyParams.horaInicio ?? existing.horaInicio ?? this.parseHour(start),
       bodyParams.horaFin ?? existing.horaFin ?? this.parseHour(end),
       bodyParams.source ?? existing.source,

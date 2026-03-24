@@ -3,12 +3,14 @@ export class ActivityDetails {
   readonly idActividad: string;
   readonly summary: string;
   readonly description?: string;
+  readonly location?: string;
 
   constructor(
     id: number,
     idActividad: string,
     summary: string,
-    description?: string
+    description?: string,
+    location?: string
   ) {
     if (id < 1) {
       throw new Error('ID de detalles inválido');
@@ -26,6 +28,7 @@ export class ActivityDetails {
     this.idActividad = idActividad;
     this.summary = summary;
     this.description = description;
+    this.location = location;
   }
 
   equals(other: ActivityDetails): boolean {
