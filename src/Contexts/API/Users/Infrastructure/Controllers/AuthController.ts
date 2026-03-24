@@ -334,6 +334,9 @@ export class AuthController {
   }
 
   async googleCallback(req: Request, res: Response): Promise<void> {
+    const calendarPageUrl = process.env.FRONTEND_URL || 'https://zafiro-frontend.vercel.app';
+    const redirectUrl = `${calendarPageUrl}/calendar`;
+
     try {
       this.validateGoogleOAuthEnv();
 
@@ -345,20 +348,14 @@ export class AuthController {
 
       if (typeof code !== 'string' || typeof state !== 'string') {
         console.warn('[GOOGLE_OAUTH] callback con parámetros inválidos de code/state');
-        res.status(400).json({
-          success: false,
-          message: 'Parámetros code/state inválidos en callback',
-        });
+        res.redirect(`${redirectUrl}?error=invalid_callback`);
         return;
       }
 
       const statePayload = this.verifyState(state);
       if (!statePayload) {
         console.warn('[GOOGLE_OAUTH] callback rechazado: state inválido o expirado');
-        res.status(400).json({
-          success: false,
-          message: 'state inválido o expirado',
-        });
+        res.redirect(`${redirectUrl}?error=invalid_state`);
         return;
       }
 
@@ -369,10 +366,7 @@ export class AuthController {
       const user = await this.userRepository.findById(statePayload.userId);
       if (!user) {
         console.warn(`[GOOGLE_OAUTH] callback sin usuario local para userId=${statePayload.userId}`);
-        res.status(404).json({
-          success: false,
-          message: 'Usuario no encontrado para completar la conexión',
-        });
+        res.redirect(`${redirectUrl}?error=user_not_found`);
         return;
       }
 
@@ -380,10 +374,7 @@ export class AuthController {
         console.warn(
           `[GOOGLE_OAUTH] callback con clerkUserId inconsistente. esperado=${statePayload.clerkUserId}, encontrado=${user.clerkUserId}`
         );
-        res.status(400).json({
-          success: false,
-          message: 'state no coincide con el usuario autenticado',
-        });
+        res.redirect(`${redirectUrl}?error=clerk_mismatch`);
         return;
       }
 
@@ -412,21 +403,11 @@ export class AuthController {
         `[GOOGLE_OAUTH] sincronización inicial completada para userId=${user.id}, imported=${syncResult.imported}`
       );
 
-      res.status(200).json({
-        success: true,
-        message: 'Google Calendar conectado y sincronizado',
-        data: {
-          userId: user.id,
-          imported: syncResult.imported,
-          nextSyncToken: syncResult.nextSyncToken,
-        },
-      });
+      // Redireccionar simple al calendar
+      res.redirect(`${redirectUrl}?success=true`);
     } catch (error) {
       console.error('[GOOGLE_OAUTH] callback fallido:', error instanceof Error ? error.message : error);
-      res.status(400).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'No se pudo completar el callback',
-      });
+      res.redirect(`${redirectUrl}?error=callback_failed`);
     }
   }
 

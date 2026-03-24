@@ -247,7 +247,7 @@ export class MySqlActivityRepository implements IActivityRepository {
           activity.transparency || null,
           activity.eventType || null,
           activity.recurringEventId || null,
-          activity.recurrence || null,
+          activity.recurrence ? JSON.stringify(activity.recurrence) : null,
           this.normalizeFrecuencia(activity.frecuencia),
           activity.source || 'local',
           activity.source === 'google' ? new Date().toISOString() : null
@@ -409,7 +409,7 @@ export class MySqlActivityRepository implements IActivityRepository {
           activity.transparency || null,
           activity.eventType || null,
           activity.recurringEventId || null,
-          activity.recurrence || null,
+          activity.recurrence ? JSON.stringify(activity.recurrence) : null,
           this.normalizeFrecuencia(activity.frecuencia),
           activity.id,
           activity.idUsuario,
@@ -702,6 +702,23 @@ export class MySqlActivityRepository implements IActivityRepository {
         }
       : undefined;
 
+    // Deserializar recurrence del JSON string almacenado en BD
+    let recurrence: string[] | undefined;
+    if (row.recurrence) {
+      try {
+        if (typeof row.recurrence === 'string') {
+          const parsed = JSON.parse(row.recurrence) as unknown;
+          recurrence = Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') 
+            ? (parsed as string[])
+            : undefined;
+        } else if (Array.isArray(row.recurrence)) {
+          recurrence = row.recurrence as string[];
+        }
+      } catch {
+        recurrence = undefined;
+      }
+    }
+
     return new Activity(
       row.id?.toString() || '',
       row.id_usuario,
@@ -722,7 +739,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       undefined,
       row.transparency || undefined,
       row.event_type || undefined,
-      row.recurrence || undefined,
+      recurrence || undefined,
       row.recurring_event_id || undefined,
       undefined,
       reminders,
@@ -730,14 +747,13 @@ export class MySqlActivityRepository implements IActivityRepository {
       prioridad,
       priority,
       undefined,
-      // RF-03 Fields
       undefined,
       undefined,
       undefined,
       undefined,
       row.source || 'local',
       row.google_event_id || undefined,
-      this.normalizeFrecuencia(row.frecuencia) ?? this.parseFrecuenciaFromRecurrence(row.recurrence) ?? undefined
+      this.normalizeFrecuencia(row.frecuencia) ?? this.parseFrecuenciaFromRecurrence(recurrence) ?? undefined
     );
   }
 }
