@@ -551,7 +551,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       [
         activityId,
         event.description || null,
-        event.iCalUID || null,
+        null, // ical_uid - no disponible en GoogleCalendarEventInput
         event.recurrence ? JSON.stringify(event.recurrence) : null,
         event.reminders?.useDefault ?? true,
         event.reminders?.overrides ? JSON.stringify(event.reminders.overrides) : null,
@@ -634,8 +634,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       Number(row.detalle_id || 1),
       row.id?.toString() || '',
       row.summary || 'Sin título',
-      row.description || undefined,
-      row.location || undefined
+      row.description || undefined
     );
 
     let priority: ActivityPriority | undefined;
@@ -746,11 +745,11 @@ export class MySqlActivityRepository implements IActivityRepository {
       etiqueta,
       prioridad,
       priority,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
+      // RF-03 Fields
+      undefined, // fechaInicio
+      undefined, // fechaFin
+      undefined, // horaInicio
+      undefined, // horaFin
       row.source || 'local',
       row.google_event_id || undefined,
       this.normalizeFrecuencia(row.frecuencia) ?? this.parseFrecuenciaFromRecurrence(recurrence) ?? undefined
