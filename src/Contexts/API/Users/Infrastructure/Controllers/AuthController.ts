@@ -478,7 +478,7 @@ export class AuthController {
         return;
       }
 
-      const accessToken = await this.getValidAccessToken(user.id, connection);
+      let accessToken = await this.getValidAccessToken(user.id, connection);
       const calendarId = typeof req.query.calendarId === 'string' ? req.query.calendarId : 'primary';
 
       const params = new URLSearchParams();
@@ -503,14 +503,25 @@ export class AuthController {
       }
 
       const endpoint = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`;
-      const response = await fetch(endpoint, {
+      let response = await fetch(endpoint, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
 
-      const payload = (await response.json()) as GoogleCalendarListResponse;
+      let payload = (await response.json()) as GoogleCalendarListResponse;
+
+      if (!response.ok && this.isGoogleAuthError(response.status, payload.error?.message)) {
+        accessToken = await this.refreshAndPersistAccessToken(user.id, connection);
+        response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        payload = (await response.json()) as GoogleCalendarListResponse;
+      }
 
       if (!response.ok) {
         throw new Error(payload.error?.message || 'No se pudo consultar Google Calendar');
@@ -767,7 +778,12 @@ export class AuthController {
 
     const payload = (await response.json()) as GoogleTokenResponse & { error?: string; error_description?: string };
     if (!response.ok || !payload.access_token) {
-      throw new Error(payload.error_description || payload.error || 'No se pudo renovar token de Google');
+      const rawMessage = payload.error_description || payload.error || 'No se pudo renovar token de Google';
+      const normalized = rawMessage.toLowerCase();
+      if (normalized.includes('invalid_grant') || normalized.includes('revoked') || normalized.includes('expired')) {
+        throw new Error('La sesion de Google expiro o fue revocada. Reconecta tu cuenta de Google Calendar.');
+      }
+      throw new Error(rawMessage);
     }
 
     return {
@@ -796,7 +812,35 @@ export class AuthController {
     return (await response.json()) as GoogleUserInfo;
   }
 
+  private isGoogleAuthError(status: number, message?: string): boolean {
+    if (status === 401) {
+      return true;
+    }
+
+    const normalized = (message || '').toLowerCase();
+    return (
+      normalized.includes('invalid credentials') ||
+      normalized.includes('token has been expired') ||
+      normalized.includes('expired or revoked') ||
+      normalized.includes('invalid_grant') ||
+      normalized.includes('revoked')
+    );
+  }
+
+  private async refreshAndPersistAccessToken(
+    idUsuario: string,
+    connection: GoogleConnectionRecord
+  ): Promise<string> {
+    const refreshed = await this.refreshGoogleToken(connection);
+    await this.userRepository.saveGoogleConnection(idUsuario, refreshed);
+    return refreshed.accessToken;
+  }
+
   private async getValidAccessToken(idUsuario: string, connection: GoogleConnectionRecord): Promise<string> {
+    if (!connection.accessToken) {
+      return this.refreshAndPersistAccessToken(idUsuario, connection);
+    }
+
     const isExpired =
       connection.expiresAt instanceof Date &&
       !Number.isNaN(connection.expiresAt.getTime()) &&
@@ -806,9 +850,7 @@ export class AuthController {
       return connection.accessToken;
     }
 
-    const refreshed = await this.refreshGoogleToken(connection);
-    await this.userRepository.saveGoogleConnection(idUsuario, refreshed);
-    return refreshed.accessToken;
+    return this.refreshAndPersistAccessToken(idUsuario, connection);
   }
 
   private getSyncWindow(): { timeMin: string; timeMax: string } {
@@ -839,7 +881,7 @@ export class AuthController {
       throw new Error('El usuario no tiene una conexión Google activa');
     }
 
-    const accessToken = await this.getValidAccessToken(idUsuario, connection);
+    let accessToken = await this.getValidAccessToken(idUsuario, connection);
     const previousSyncState = await this.userRepository.getGoogleSyncState(idUsuario);
     const calendarId = previousSyncState?.googleCalendarId || 'primary';
 
@@ -875,14 +917,25 @@ export class AuthController {
         }
 
         const endpoint = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`;
-        const response = await fetch(endpoint, {
+        let response = await fetch(endpoint, {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
         });
 
-        const payload = (await response.json()) as GoogleCalendarListResponse;
+        let payload = (await response.json()) as GoogleCalendarListResponse;
+
+        if (!response.ok && this.isGoogleAuthError(response.status, payload.error?.message)) {
+          accessToken = await this.refreshAndPersistAccessToken(idUsuario, connection);
+          response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+          payload = (await response.json()) as GoogleCalendarListResponse;
+        }
 
         if (!response.ok) {
           const isExpiredSyncToken = response.status === 410;

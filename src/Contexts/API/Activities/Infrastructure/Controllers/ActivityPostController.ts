@@ -557,7 +557,12 @@ export class ActivityPostController {
     };
 
     if (!response.ok || !payload.access_token) {
-      throw new Error(payload.error_description || payload.error || 'No se pudo renovar token de Google');
+      const rawMessage = payload.error_description || payload.error || 'No se pudo renovar token de Google';
+      const normalized = rawMessage.toLowerCase();
+      if (normalized.includes('invalid_grant') || normalized.includes('revoked') || normalized.includes('expired')) {
+        throw new Error('La sesion de Google expiro o fue revocada. Reconecta tu cuenta de Google Calendar.');
+      }
+      throw new Error(rawMessage);
     }
 
     return {
@@ -567,6 +572,12 @@ export class ActivityPostController {
   }
 
   private async getValidGoogleAccessToken(connection: GoogleConnectionRecord): Promise<string> {
+    if (!connection.accessToken) {
+      const refreshed = await this.refreshGoogleAccessToken(connection);
+      await this.saveGoogleConnectionToken(connection.idUsuario, refreshed.accessToken, refreshed.expiresAt);
+      return refreshed.accessToken;
+    }
+
     const isExpired =
       connection.expiresAt instanceof Date &&
       !Number.isNaN(connection.expiresAt.getTime()) &&
@@ -581,15 +592,36 @@ export class ActivityPostController {
     return refreshed.accessToken;
   }
 
+  private isGoogleAuthError(status: number, message?: string): boolean {
+    if (status === 401) {
+      return true;
+    }
+
+    const normalized = (message || '').toLowerCase();
+    return (
+      normalized.includes('invalid credentials') ||
+      normalized.includes('token has been expired') ||
+      normalized.includes('expired or revoked') ||
+      normalized.includes('invalid_grant') ||
+      normalized.includes('revoked')
+    );
+  }
+
+  private async refreshAndPersistGoogleAccessToken(connection: GoogleConnectionRecord): Promise<string> {
+    const refreshed = await this.refreshGoogleAccessToken(connection);
+    await this.saveGoogleConnectionToken(connection.idUsuario, refreshed.accessToken, refreshed.expiresAt);
+    return refreshed.accessToken;
+  }
+
   private async createGoogleEventForActivity(activity: Activity): Promise<{ id?: string; htmlLink?: string }> {
     const connection = await this.getGoogleConnectionByUserId(activity.idUsuario);
     if (!connection || !connection.isActive) {
       return {};
     }
 
-    const accessToken = await this.getValidGoogleAccessToken(connection);
+    let accessToken = await this.getValidGoogleAccessToken(connection);
     const endpoint = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
-    const response = await fetch(endpoint, {
+    let response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -598,11 +630,28 @@ export class ActivityPostController {
       body: JSON.stringify(this.toGoogleEventPayload(activity)),
     });
 
-    const payload = (await response.json()) as {
+    let payload = (await response.json()) as {
       id?: string;
       htmlLink?: string;
       error?: { message?: string };
     };
+
+    if (!response.ok && this.isGoogleAuthError(response.status, payload.error?.message)) {
+      accessToken = await this.refreshAndPersistGoogleAccessToken(connection);
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(this.toGoogleEventPayload(activity)),
+      });
+      payload = (await response.json()) as {
+        id?: string;
+        htmlLink?: string;
+        error?: { message?: string };
+      };
+    }
 
     if (!response.ok) {
       throw new Error(payload.error?.message || 'No se pudo crear evento en Google Calendar');
@@ -624,14 +673,24 @@ export class ActivityPostController {
       return;
     }
 
-    const accessToken = await this.getValidGoogleAccessToken(connection);
+    let accessToken = await this.getValidGoogleAccessToken(connection);
     const endpoint = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(activity.googleEventId)}`;
-    const response = await fetch(endpoint, {
+    let response = await fetch(endpoint, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
+
+    if (!response.ok && this.isGoogleAuthError(response.status)) {
+      accessToken = await this.refreshAndPersistGoogleAccessToken(connection);
+      response = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    }
 
     if (!response.ok && response.status !== 404 && response.status !== 410) {
       const payload = (await response.json()) as { error?: { message?: string } };
@@ -649,9 +708,9 @@ export class ActivityPostController {
       return {};
     }
 
-    const accessToken = await this.getValidGoogleAccessToken(connection);
+    let accessToken = await this.getValidGoogleAccessToken(connection);
     const endpoint = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(activity.googleEventId)}`;
-    const response = await fetch(endpoint, {
+    let response = await fetch(endpoint, {
       method: 'PATCH',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -660,11 +719,28 @@ export class ActivityPostController {
       body: JSON.stringify(this.toGoogleEventPayload(activity)),
     });
 
-    const payload = (await response.json()) as {
+    let payload = (await response.json()) as {
       id?: string;
       htmlLink?: string;
       error?: { message?: string };
     };
+
+    if (!response.ok && this.isGoogleAuthError(response.status, payload.error?.message)) {
+      accessToken = await this.refreshAndPersistGoogleAccessToken(connection);
+      response = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(this.toGoogleEventPayload(activity)),
+      });
+      payload = (await response.json()) as {
+        id?: string;
+        htmlLink?: string;
+        error?: { message?: string };
+      };
+    }
 
     if (!response.ok) {
       throw new Error(payload.error?.message || 'No se pudo actualizar evento en Google Calendar');
