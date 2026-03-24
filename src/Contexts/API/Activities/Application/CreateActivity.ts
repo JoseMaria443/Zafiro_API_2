@@ -50,6 +50,7 @@ export interface CreateActivityRequest {
   location?: string;
   repetitionId?: number;
   idFrecuencia?: number;
+  diasSemana?: any[];
 }
 
 export class CreateActivityUseCase {
