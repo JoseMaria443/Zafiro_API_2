@@ -29,6 +29,7 @@ import { DeletePriorityUseCase } from './Contexts/API/Priorities/Application/Del
 import { PriorityController } from './Contexts/API/Priorities/Infrastructure/Controllers/PriorityController.js';
 import { MySqlPriorityRepository } from './Contexts/API/Priorities/Infrastructure/Persistence/MySqlPriorityRepository.js';
 import { AuthMiddleware } from './Shared/Infrastructure/Middleware/AuthMiddleware.js';
+import { AlgoritmoController } from './Contexts/API/Activities/Infrastructure/Controllers/AlgoritmoController.js';
 
 export const createApp = (): Express => {
   const app = express();
@@ -109,6 +110,8 @@ export const createApp = (): Express => {
     updatePriorityUseCase,
     deletePriorityUseCase
   );
+
+  const algorithmController = new AlgoritmoController()
 
   const runProtected = (req: Request, res: Response, action: () => void): void => {
     void authMiddleware.authenticate(req, res, action);
@@ -350,6 +353,14 @@ export const createApp = (): Express => {
       void authController.googleDisconnect(req, res);
     });
   });
+
+  app.get('/api/algorithm/health', (req: Request, res: Response) => {
+    void algorithmController.healthCheck(res)
+  })
+
+  app.get('/api/algorithm/sort', (req: Request, res: Response) => {
+    void algorithmController.procesarDatos(req, res)
+  })
 
   app.use((req: Request, res: Response) => {
     res.status(404).json({
