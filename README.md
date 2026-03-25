@@ -160,6 +160,11 @@ Prioridades:
 - `PUT /api/priorities/:id`
 - `DELETE /api/priorities/:id`
 
+Algoritmo (API secundaria):
+
+- `POST /api/algorithm/sort`
+- `POST /api/algorithm/health`
+
 ## Actividades
 
 Reglas actuales del backend:

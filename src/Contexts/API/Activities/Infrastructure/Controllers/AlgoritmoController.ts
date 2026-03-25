@@ -13,11 +13,11 @@ export class AlgoritmoController {
       const urlAlgoritmo = process.env.ALGORITMO_API;
 
       if (!urlAlgoritmo) {
-        res.status(500).json({ error: 'Variable ALGORITMO_API no configurada' });
+        res.status(500).json({ error: 'No se ha podido iniciar la conexión con la API del algoritmo' });
         return;
       }
 
-      const respuestaAlgoritmo = await fetch(`${urlAlgoritmo}/api/endpoint-deseado`, {
+      const respuestaAlgoritmo = await fetch(`${urlAlgoritmo}/sort`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,6 +45,31 @@ export class AlgoritmoController {
       });
     } catch (error) {
       res.status(500).json({ error: 'Error al comunicarse con el algoritmo' });
+    }
+  }
+
+  public async healthCheck(res: Response):Promise<void> {
+    const urlAlgoritmo = process.env.ALGORITMO_API;
+    try {
+      const response = await fetch(`${urlAlgoritmo}/health`)
+
+      if (!response.ok) {
+        let errorDelAlgoritmo;
+        try {
+          errorDelAlgoritmo = await response.json();
+        } catch {
+          errorDelAlgoritmo = { error: 'Error desconocido del algoritmo' };
+        }
+        res.status(response.status).json(errorDelAlgoritmo);
+        return;
+      }
+      const datosFinales = await response.json();
+      res.status(200).json({
+        success: true,
+        data: datosFinales
+      })
+    } catch (e) {
+      res.status(500).json({ error:'Error al conectarse a la API' })
     }
   }
 }
