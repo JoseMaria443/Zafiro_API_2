@@ -6,25 +6,12 @@ export class AuthMiddleware {
   private clerkService = new ClerkService();
 
   async authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      res.status(401).json({
-        success: false,
-        message: 'Token no proporcionado',
-      });
-      return;
-    }
-
-    const token = authHeader.startsWith('Bearer ')
-      ? authHeader.slice(7).trim()
-      : authHeader.trim();
-
+    const token = (req.body && typeof req.body.token === 'string') ? req.body.token.trim() : null;
 
     if (!token) {
       res.status(401).json({
         success: false,
-        message: 'Token vacío',
+        message: 'Token JWT no proporcionado en el body',
       });
       return;
     }
@@ -32,7 +19,7 @@ export class AuthMiddleware {
     try {
       const clerkUser = await this.clerkService.validateToken(token);
       (req as any).user = {
-       clerkUserId: clerkUser.clerkUserId,
+        clerkUserId: clerkUser.clerkUserId,
         correo: clerkUser.correo,
         nombre: clerkUser.nombre,
       };
