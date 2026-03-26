@@ -39,9 +39,11 @@ export class AlgoritmoController {
 
       const datosFinalesProcesados = await respuestaAlgoritmo.json();
 
+      // Convertir el objeto a string para el header (puedes ajustar el nombre del header)
+      res.setHeader('X-Algoritmo-Result', encodeURIComponent(JSON.stringify(datosFinalesProcesados)));
       res.status(200).json({
         success: true,
-        data: datosFinalesProcesados,
+        message: 'Resultado enviado en el header X-Algoritmo-Result',
       });
     } catch (error) {
       res.status(500).json({ error: 'Error al comunicarse con el algoritmo' });

@@ -6,12 +6,17 @@ export class AuthMiddleware {
   private clerkService = new ClerkService();
 
   async authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
-    const token = (req.body && typeof req.body.token === 'string') ? req.body.token.trim() : null;
+    // Obtener el token del header Authorization (Bearer)
+    const authHeader = req.headers.authorization;
+    let token: string | null = null;
+    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7).trim();
+    }
 
     if (!token) {
       res.status(401).json({
         success: false,
-        message: 'Token JWT no proporcionado en el body',
+        message: 'Token JWT no proporcionado en el header Authorization',
       });
       return;
     }
