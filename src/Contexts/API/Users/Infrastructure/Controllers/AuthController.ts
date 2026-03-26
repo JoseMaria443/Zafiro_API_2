@@ -105,13 +105,6 @@ export class AuthController {
   async loginSession(req: Request, res: Response): Promise<void> {
     try {
       const tokenFromBody = (req.body && typeof req.body.token === 'string') ? req.body.token.trim() : null;
-      if (!tokenFromBody) {
-        res.status(400).json({
-          success: false,
-          message: 'Token JWT requerido en el body',
-        });
-        return;
-      }
 
       const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromBody);
 
@@ -141,13 +134,6 @@ export class AuthController {
   async registerSession(req: Request, res: Response): Promise<void> {
     try {
       const tokenFromBody = (req.body && typeof req.body.token === 'string') ? req.body.token.trim() : null;
-      if (!tokenFromBody) {
-        res.status(400).json({
-          success: false,
-          message: 'Token JWT requerido en el body',
-        });
-        return;
-      }
 
       const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromBody);
 
