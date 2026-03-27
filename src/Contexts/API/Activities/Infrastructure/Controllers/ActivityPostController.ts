@@ -475,24 +475,15 @@ export class ActivityPostController {
 
 
   private async getValidGoogleAccessToken(connection: GoogleConnectionRecord): Promise<string> {
-    if (!connection.accessToken) {
-      const refreshed = await this.refreshGoogleAccessToken(connection);
-      await this.saveGoogleConnectionToken(connection.idUsuario, refreshed.accessToken, refreshed.expiresAt);
+    // Si no hay accessToken, o expiresAt es null/undefined/no válido, o está por expirar, refresca y guarda usando el repositorio
+    const expiresAt = connection.expiresAt;
+    const expiresAtValid = expiresAt instanceof Date && !Number.isNaN(expiresAt.getTime());
+    const isExpiringSoon = !expiresAtValid || (expiresAt.getTime() - Date.now() < 60_000);
+    if (!connection.accessToken || isExpiringSoon) {
+      const refreshed = await this.userRepository.refreshAndSaveGoogleConnection(connection);
       return refreshed.accessToken;
     }
-
-    const isExpired =
-      connection.expiresAt instanceof Date &&
-      !Number.isNaN(connection.expiresAt.getTime()) &&
-      connection.expiresAt.getTime() - Date.now() < 60_000;
-
-    if (!isExpired && connection.accessToken) {
-      return connection.accessToken;
-    }
-
-    const refreshed = await this.refreshGoogleAccessToken(connection);
-    await this.saveGoogleConnectionToken(connection.idUsuario, refreshed.accessToken, refreshed.expiresAt);
-    return refreshed.accessToken;
+    return connection.accessToken;
   }
 
   private isGoogleAuthError(status: number, message?: string): boolean {
@@ -511,11 +502,7 @@ export class ActivityPostController {
   }
 
 
-  private async refreshAndPersistGoogleAccessToken(connection: any): Promise<string> {
-    // Usa el método centralizado del repositorio
-    const refreshed = await this.userRepository.refreshAndSaveGoogleConnection(connection);
-    return refreshed.accessToken;
-  }
+  // ...existing code...
 
   private async createGoogleEventForActivity(activity: Activity): Promise<{ id?: string; htmlLink?: string }> {
     const connection = await this.userRepository.getGoogleConnectionByUserId(activity.idUsuario);
