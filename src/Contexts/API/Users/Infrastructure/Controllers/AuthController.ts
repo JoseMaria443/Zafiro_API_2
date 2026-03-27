@@ -104,10 +104,16 @@ export class AuthController {
    */
   async loginSession(req: Request, res: Response): Promise<void> {
     try {
-      const tokenFromBody = (req.body && typeof req.body.token === 'string') ? req.body.token.trim() : null;
+      const tokenFromHeader = (req.headers.authorization && typeof req.headers.authorization === 'string') ? req.headers.authorization.split(' ')[1] : null;
+      if (!tokenFromHeader) {
+        res.status(400).json({
+          success: false,
+          message: 'Token JWT requerido en el encabezado',
+        });
+        return;
+      }
 
-      const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromBody);
-
+      const { user, isNewUser } = await this.loginUserUseCase.execute('tokenFromHeader');
       res.status(200).json({
         success: true,
         message: isNewUser ? 'Usuario creado y sesión iniciada' : 'Sesión iniciada correctamente',
@@ -133,9 +139,16 @@ export class AuthController {
    */
   async registerSession(req: Request, res: Response): Promise<void> {
     try {
-      const tokenFromBody = (req.body && typeof req.body.token === 'string') ? req.body.token.trim() : null;
+      const tokenFromHeader = (req.headers.authorization && typeof req.headers.authorization === 'string') ? req.headers.authorization : null;
+      if (!tokenFromHeader) {
+        res.status(400).json({
+          success: false,
+          message: 'Token JWT requerido en el encabezado',
+        });
+        return;
+      }
 
-      const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromBody);
+      const { user, isNewUser } = await this.loginUserUseCase.execute('tokenFromHeader');
 
       if (!isNewUser) {
         res.status(200).json({
