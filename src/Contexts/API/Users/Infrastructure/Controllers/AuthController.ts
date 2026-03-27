@@ -109,7 +109,10 @@ export class AuthController {
         res.status(400).json({
           success: false,
           message: 'Token JWT requerido en el encabezado',
-      });
+        });
+        return;
+      }
+      // ...existing code...
     } catch (error) {
       res.status(401).json({
         success: false,
