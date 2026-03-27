@@ -273,6 +273,9 @@ export class AuthController {
     const calendarPageUrl = process.env.FRONTEND_URL || 'https://zafiro-frontend.vercel.app';
     const redirectUrl = `${calendarPageUrl}/calendar`;
 
+    // Detectar si la petición es AJAX/fetch/XHR
+    const wantsJson = req.xhr || req.headers.accept?.includes('application/json') || req.headers['content-type'] === 'application/json';
+
     try {
       this.validateGoogleOAuthEnv();
 
@@ -284,14 +287,22 @@ export class AuthController {
 
       if (typeof code !== 'string' || typeof state !== 'string') {
         console.warn('[GOOGLE_OAUTH] callback con parámetros inválidos de code/state');
-        res.redirect(`${redirectUrl}?error=invalid_callback`);
+        if (wantsJson) {
+          res.status(400).json({ success: false, error: 'invalid_callback' });
+        } else {
+          res.redirect(`${redirectUrl}?error=invalid_callback`);
+        }
         return;
       }
 
       const statePayload = this.verifyState(state);
       if (!statePayload) {
         console.warn('[GOOGLE_OAUTH] callback rechazado: state inválido o expirado');
-        res.redirect(`${redirectUrl}?error=invalid_state`);
+        if (wantsJson) {
+          res.status(400).json({ success: false, error: 'invalid_state' });
+        } else {
+          res.redirect(`${redirectUrl}?error=invalid_state`);
+        }
         return;
       }
 
@@ -302,7 +313,11 @@ export class AuthController {
       const user = await this.userRepository.findById(statePayload.userId);
       if (!user) {
         console.warn(`[GOOGLE_OAUTH] callback sin usuario local para userId=${statePayload.userId}`);
-        res.redirect(`${redirectUrl}?error=user_not_found`);
+        if (wantsJson) {
+          res.status(404).json({ success: false, error: 'user_not_found' });
+        } else {
+          res.redirect(`${redirectUrl}?error=user_not_found`);
+        }
         return;
       }
 
@@ -310,7 +325,11 @@ export class AuthController {
         console.warn(
           `[GOOGLE_OAUTH] callback con clerkUserId inconsistente. esperado=${statePayload.clerkUserId}, encontrado=${user.clerkUserId}`
         );
-        res.redirect(`${redirectUrl}?error=clerk_mismatch`);
+        if (wantsJson) {
+          res.status(400).json({ success: false, error: 'clerk_mismatch' });
+        } else {
+          res.redirect(`${redirectUrl}?error=clerk_mismatch`);
+        }
         return;
       }
 
@@ -339,11 +358,24 @@ export class AuthController {
         `[GOOGLE_OAUTH] sincronización inicial completada para userId=${user.id}, imported=${syncResult.imported}`
       );
 
-      // Redireccionar simple al calendar
-      res.redirect(`${redirectUrl}?success=true`);
+      if (wantsJson) {
+        res.status(200).json({
+          success: true,
+          userId: user.id,
+          googleEmail: googleUser.email,
+          imported: syncResult.imported,
+          token: tokenData.access_token,
+        });
+      } else {
+        res.redirect(`${redirectUrl}?success=true`);
+      }
     } catch (error) {
       console.error('[GOOGLE_OAUTH] callback fallido:', error instanceof Error ? error.message : error);
-      res.redirect(`${redirectUrl}?error=callback_failed`);
+      if (wantsJson) {
+        res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'callback_failed' });
+      } else {
+        res.redirect(`${redirectUrl}?error=callback_failed`);
+      }
     }
   }
 
