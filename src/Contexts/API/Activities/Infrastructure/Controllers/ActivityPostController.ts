@@ -8,22 +8,14 @@ import type { EventActor, EventDateTime, EventReminders } from '../../Domain/Act
 import { Activity } from '../../Domain/Activity.js';
 import { ActivityDetails } from '../../Domain/ActivityDetails.js';
 import { ActivityPriority, PriorityLevel } from '../../Domain/ActivityPriority.js';
-import { PostgresConnection } from '../../../../../Shared/Infrastructure/Database/PostgresConnection.js';
+import { MySqlUserRepository } from '../../../Users/Infrastructure/Persistence/MySqlUserRepository.js';
 
-interface GoogleConnectionRecord {
-  idUsuario: string;
-  accessToken?: string;
-  refreshToken?: string;
-  tokenType?: string;
-  scope?: string;
-  expiresAt?: Date;
-  isActive: boolean;
-}
+
 
 type LocalFrecuencia = 'diaria' | 'semanal' | 'mensual' | 'anual';
 
-export class ActivityPostController {
-  private db = PostgresConnection.getInstance();
+
+  private userRepository = new MySqlUserRepository();
 
   constructor(
     private createActivityUseCase: CreateActivityUseCase,
@@ -479,97 +471,7 @@ export class ActivityPostController {
     return undefined;
   }
 
-  private async getGoogleConnectionByUserId(idUsuario: string): Promise<GoogleConnectionRecord | null> {
-    const result = await this.db.query(
-      `SELECT id_usuario, access_token, refresh_token, token_type, scope, expires_at, is_active
-       FROM user_google_connections
-       WHERE id_usuario = $1 AND is_active = TRUE`,
-      [idUsuario]
-    );
 
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    const row = result.rows[0];
-    return {
-      idUsuario: row.id_usuario,
-      accessToken: row.access_token || undefined,
-      refreshToken: row.refresh_token || undefined,
-      tokenType: row.token_type || undefined,
-      scope: row.scope || undefined,
-      expiresAt: row.expires_at ? new Date(row.expires_at) : undefined,
-      isActive: Boolean(row.is_active),
-    };
-  }
-
-  private async saveGoogleConnectionToken(idUsuario: string, accessToken: string, expiresAt?: Date): Promise<void> {
-    await this.db.query(
-      `UPDATE user_google_connections
-       SET access_token = $1,
-           expires_at = $2,
-           updated_at = NOW()
-       WHERE id_usuario = $3`,
-      [accessToken, expiresAt || null, idUsuario]
-    );
-
-    await this.db.query(
-      `UPDATE usuarios
-       SET token_google = $1,
-           updated_at = NOW()
-       WHERE id = $2`,
-      [accessToken, idUsuario]
-    );
-  }
-
-  private computeExpiresAt(expiresIn?: number): Date | undefined {
-    if (!expiresIn || Number.isNaN(expiresIn)) {
-      return undefined;
-    }
-    return new Date(Date.now() + expiresIn * 1000);
-  }
-
-  private async refreshGoogleAccessToken(connection: GoogleConnectionRecord): Promise<{ accessToken: string; expiresAt?: Date }> {
-    if (!connection.refreshToken) {
-      throw new Error('La conexión Google no tiene refresh_token para renovar acceso');
-    }
-
-    const body = new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID || '',
-      client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
-      refresh_token: connection.refreshToken,
-      grant_type: 'refresh_token',
-    });
-
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body,
-    });
-
-    const payload = (await response.json()) as {
-      access_token?: string;
-      expires_in?: number;
-      error?: string;
-      error_description?: string;
-    };
-
-    if (!response.ok || !payload.access_token) {
-      const rawMessage = payload.error_description || payload.error || 'No se pudo renovar token de Google';
-      const normalized = rawMessage.toLowerCase();
-      if (normalized.includes('invalid_grant') || normalized.includes('revoked') || normalized.includes('expired')) {
-        throw new Error('La sesion de Google expiro o fue revocada. Reconecta tu cuenta de Google Calendar.');
-      }
-      throw new Error(rawMessage);
-    }
-
-    return {
-      accessToken: payload.access_token,
-      expiresAt: this.computeExpiresAt(payload.expires_in),
-    };
-  }
 
   private async getValidGoogleAccessToken(connection: GoogleConnectionRecord): Promise<string> {
     if (!connection.accessToken) {
@@ -607,14 +509,15 @@ export class ActivityPostController {
     );
   }
 
-  private async refreshAndPersistGoogleAccessToken(connection: GoogleConnectionRecord): Promise<string> {
-    const refreshed = await this.refreshGoogleAccessToken(connection);
-    await this.saveGoogleConnectionToken(connection.idUsuario, refreshed.accessToken, refreshed.expiresAt);
+
+  private async refreshAndPersistGoogleAccessToken(connection: any): Promise<string> {
+    // Usa el método centralizado del repositorio
+    const refreshed = await this.userRepository.refreshAndSaveGoogleConnection(connection);
     return refreshed.accessToken;
   }
 
   private async createGoogleEventForActivity(activity: Activity): Promise<{ id?: string; htmlLink?: string }> {
-    const connection = await this.getGoogleConnectionByUserId(activity.idUsuario);
+    const connection = await this.userRepository.getGoogleConnectionByUserId(activity.idUsuario);
     if (!connection || !connection.isActive) {
       return {};
     }
@@ -668,7 +571,7 @@ export class ActivityPostController {
       return;
     }
 
-    const connection = await this.getGoogleConnectionByUserId(activity.idUsuario);
+    const connection = await this.userRepository.getGoogleConnectionByUserId(activity.idUsuario);
     if (!connection || !connection.isActive) {
       return;
     }
@@ -703,7 +606,7 @@ export class ActivityPostController {
       return this.createGoogleEventForActivity(activity);
     }
 
-    const connection = await this.getGoogleConnectionByUserId(activity.idUsuario);
+    const connection = await this.userRepository.getGoogleConnectionByUserId(activity.idUsuario);
     if (!connection || !connection.isActive) {
       return {};
     }
@@ -990,7 +893,7 @@ export class ActivityPostController {
 
       // Se exige conexión activa para que create quede sincronizado a Google Calendar.
       if (bodyParams.source !== 'google') {
-        const connection = await this.getGoogleConnectionByUserId(resolvedUserId);
+        const connection = await this.userRepository.getGoogleConnectionByUserId(resolvedUserId);
         if (!connection || !connection.isActive) {
           res.status(409).json({
             success: false,

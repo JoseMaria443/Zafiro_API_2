@@ -42,6 +42,64 @@ export interface GoogleReminderSettings {
 }
 
 export class MySqlUserRepository implements IUserRepository {
+
+    /**
+     * Refresca el access token de Google usando el refresh_token y guarda todos los datos relevantes en la BD.
+     * Devuelve el nuevo access token y los datos actualizados.
+     */
+    async refreshAndSaveGoogleConnection(connection: GoogleConnectionRecord): Promise<GoogleConnectionData> {
+      if (!connection.refreshToken) {
+        throw new Error('La conexión Google no tiene refresh_token para renovar acceso');
+      }
+
+      const body = new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID || '',
+        client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+        refresh_token: connection.refreshToken,
+        grant_type: 'refresh_token',
+      });
+
+      const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body,
+      });
+
+      const payload = (await response.json()) as {
+        access_token?: string;
+        expires_in?: number;
+        refresh_token?: string;
+        token_type?: string;
+        scope?: string;
+        error?: string;
+        error_description?: string;
+      };
+
+      if (!response.ok || !payload.access_token) {
+        const rawMessage = payload.error_description || payload.error || 'No se pudo renovar token de Google';
+        const normalized = rawMessage.toLowerCase();
+        if (normalized.includes('invalid_grant') || normalized.includes('revoked') || normalized.includes('expired')) {
+          throw new Error('La sesión de Google expiró o fue revocada. Reconecta tu cuenta de Google Calendar.');
+        }
+        throw new Error(rawMessage);
+      }
+
+      // Mantener los datos previos si Google no devuelve nuevos
+      const newData: GoogleConnectionData = {
+        googleEmail: connection.googleEmail,
+        googleAccountSub: connection.googleAccountSub,
+        accessToken: payload.access_token,
+        refreshToken: payload.refresh_token || connection.refreshToken,
+        tokenType: payload.token_type || connection.tokenType,
+        scope: payload.scope || connection.scope,
+        expiresAt: payload.expires_in ? new Date(Date.now() + payload.expires_in * 1000) : connection.expiresAt,
+      };
+
+      await this.saveGoogleConnection(connection.idUsuario, newData);
+      return newData;
+    }
   private db = PostgresConnection.getInstance();
 
   async save(user: User): Promise<void> {
