@@ -15,6 +15,7 @@ import { MySqlUserRepository } from '../../../Users/Infrastructure/Persistence/M
 type LocalFrecuencia = 'diaria' | 'semanal' | 'mensual' | 'anual';
 
 
+export class ActivityPostController {
   private userRepository = new MySqlUserRepository();
 
   constructor(
