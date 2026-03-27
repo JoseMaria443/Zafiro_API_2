@@ -247,6 +247,7 @@ export class MySqlUserRepository implements IUserRepository {
   }
 
   async saveGoogleConnection(idUsuario: string, data: GoogleConnectionData): Promise<void> {
+    // Guardar en user_google_connections
     await this.db.query(
       `INSERT INTO user_google_connections (
          id_usuario,
@@ -283,13 +284,19 @@ export class MySqlUserRepository implements IUserRepository {
       ]
     );
 
-    await this.db.query(
-      `UPDATE usuarios
-       SET token_google = $1,
-           updated_at = NOW()
-       WHERE id = $2`,
-      [data.accessToken, idUsuario]
-    );
+    // Forzar el guardado del token_google en usuarios si hay accessToken
+    if (data.accessToken) {
+      console.log(`[FORZAR TOKEN] Guardando token_google para usuario ${idUsuario}`);
+      await this.db.query(
+        `UPDATE usuarios
+         SET token_google = $1,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [data.accessToken, idUsuario]
+      );
+    } else {
+      console.warn(`[FORZAR TOKEN] No se recibió accessToken para usuario ${idUsuario}, no se actualiza token_google`);
+    }
   }
 
   async getGoogleConnectionByUserId(idUsuario: string): Promise<GoogleConnectionRecord | null> {
