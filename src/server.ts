@@ -2,12 +2,12 @@ import 'dotenv/config';
 import { createApp } from './app.js';
 
 const app = createApp();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8000;
 
 const server = app.listen(Number(PORT), '0.0.0.0', () => {
   console.log('\n Zafiro esta vivo \n');
   console.log('═══════════════════════════════════════════════════');
-  console.log(`Servidor loca: http://localhost:${PORT}`);
+  console.log(`Servidor local: http://localhost:${PORT}`);
   console.log(`Servidor con ip:    http://0.0.0.0:${PORT}`);
   console.log(`Entorno:               ${process.env.NODE_ENV || 'development'}`);
   console.log(`Verificación de estado:          http://localhost:${PORT}/health`);

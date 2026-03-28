@@ -293,7 +293,7 @@ export class AuthController {
       const expectedCorreo = this.extractExpectedEmail(req);
       const user = await this.resolveAuthenticatedUser(req, expectedCorreo);
       console.log(
-        `[GOOGLE_OAUTH] connect iniciado para userId=${user.id}, clerkUserId=${user.clerkUserId}, expectedEmail=${expectedCorreo || 'none'}`
+        `[GOOGLE_OAUTH] connect iniciado para userId=${user.id}, clerkUserId=${user.clerkUserId}, expectedEmail=${user.correo || 'none'}`
       );
 
       const state = this.signState({
