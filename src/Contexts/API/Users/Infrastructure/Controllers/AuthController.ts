@@ -333,7 +333,7 @@ export class AuthController {
   }
 
   async googleCallback(req: Request, res: Response): Promise<void> {
-    const calendarPageUrl = process.env.FRONTEND_URL || 'https://localhost:3000';
+    const calendarPageUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const redirectUrl = `${calendarPageUrl}/calendar`;
 
     try {
