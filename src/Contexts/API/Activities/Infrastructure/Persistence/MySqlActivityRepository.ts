@@ -311,6 +311,35 @@ export class MySqlActivityRepository implements IActivityRepository {
     return this.mapRowToActivity(result.rows[0]);
   }
 
+  async findByGoogleEventIds(googleEventIds: string[]): Promise<Map<string, Activity>> {
+    if (googleEventIds.length === 0) return new Map();
+
+    const placeholders = googleEventIds.map((_, i) => `$${i + 1}`).join(', ');
+
+    const result = await this.db.query(
+      `SELECT ac.*,
+              ad.id as detalle_id, ad.description,
+              ad.reminders_use_default, ad.reminders_overrides,
+              p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
+              e.id as etiqueta_id, e.nombre as etiqueta_nombre,
+              NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
+       FROM actividades_completa ac
+       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
+       LEFT JOIN prioridad p ON ac.id = p.id_actividad
+       LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
+       WHERE ac.google_event_id = ANY(ARRAY[${placeholders}]::text[])`,
+      googleEventIds
+    );
+
+    const map = new Map<string, Activity>();
+    for (const row of result.rows) {
+      if (row.google_event_id) {
+        map.set(row.google_event_id, this.mapRowToActivity(row));
+      }
+    }
+    return map;
+  }
+
   async findByUserId(idUsuario: string): Promise<Activity[]> {
     const result = await this.db.query(
       `SELECT ac.*, 
