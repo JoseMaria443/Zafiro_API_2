@@ -358,7 +358,7 @@ export const createApp = (): Express => {
     void algorithmController.healthCheck(res)
   })
 
-  app.get('/api/algorithm/sort', (req: Request, res: Response) => {
+  app.post('/api/algorithm/sort', (req: Request, res: Response) => {
     void algorithmController.procesarDatos(req, res)
   })
 
