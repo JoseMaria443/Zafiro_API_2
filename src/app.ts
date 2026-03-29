@@ -354,7 +354,7 @@ export const createApp = (): Express => {
     });
   });
 
-  app.post('/api/algorithm/health', (req: Request, res: Response) => {
+  app.get('/api/algorithm/health', (req: Request, res: Response) => {
     void algorithmController.healthCheck(res)
   })
 
