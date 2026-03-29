@@ -345,13 +345,15 @@ export class AuthController {
         `[GOOGLE_OAUTH] callback recibido. hasCode=${typeof code === 'string'}, hasState=${typeof state === 'string'}`
       );
 
-      if (typeof code !== 'string' || typeof state !== 'string') {
-        console.warn('[GOOGLE_OAUTH] callback con parámetros inválidos de code/state');
-        res.redirect(`${redirectUrl}?error=invalid_callback`);
+      const googleError = req.query.error;
+      if (typeof googleError === 'string') {
+        console.warn('[GOOGLE_OAUTH] Autorización denegada o error de Google');
+        res.redirect(`${redirectUrl}?error=${googleError}`);
         return;
       }
+      
 
-      const statePayload = this.verifyState(state);
+      const statePayload = this.verifyState(String(state));
       if (!statePayload) {
         console.warn('[GOOGLE_OAUTH] callback rechazado: state inválido o expirado');
         res.redirect(`${redirectUrl}?error=invalid_state`);
@@ -377,7 +379,7 @@ export class AuthController {
         return;
       }
 
-      const tokenData = await this.exchangeGoogleCode(code);
+      const tokenData = await this.exchangeGoogleCode(String(code));
       console.log(`[GOOGLE_OAUTH] token exchange exitoso para userId=${user.id}`);
 
       const googleUser = await this.getGoogleUserInfo(tokenData.access_token);
@@ -397,9 +399,12 @@ export class AuthController {
         `[GOOGLE_OAUTH] conexión guardada para userId=${user.id}, googleEmail=${googleUser.email || 'unknown'}`
       );
 
-      const syncResult = await this.syncGoogleCalendarForUser(user.id, true);
+      const syncResult = this.syncGoogleCalendarForUser(user.id, true).catch(err => {
+        console.log(`[GOOGLE_OAUTH] Error en la sincronización inicial en segundo plano para el usuario de ID ${user.id}:`, err)
+      });
       console.log(
-        `[GOOGLE_OAUTH] sincronización inicial completada para userId=${user.id}, imported=${syncResult.imported}`
+
+        `[GOOGLE_OAUTH] sincronización inicial completada para userId=${user.id}`
       );
 
       // Redireccionar simple al calendar
