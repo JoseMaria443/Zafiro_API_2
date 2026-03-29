@@ -17,7 +17,7 @@ export class AlgoritmoController {
         return;
       }
 
-      const respuestaAlgoritmo = await fetch(`${urlAlgoritmo}/sort`, {
+      const respuestaAlgoritmo = await fetch(`${urlAlgoritmo}/api/sort`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -53,7 +53,7 @@ export class AlgoritmoController {
   public async healthCheck(res: Response):Promise<void> {
     const urlAlgoritmo = process.env.ALGORITMO_API;
     try {
-      const response = await fetch(`${urlAlgoritmo}/health`)
+      const response = await fetch(`${urlAlgoritmo}/api/health`)
 
       if (!response.ok) {
         let errorDelAlgoritmo;
