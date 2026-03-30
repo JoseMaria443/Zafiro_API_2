@@ -2,15 +2,15 @@ export class UserSettings {
   readonly id: string;
   readonly idUsuario: string; // UUID (formerly number)
   readonly ocupacion: string | undefined;
-  readonly horaInicio: number | undefined;
-  readonly horaFin: number | undefined;
+  readonly horaInicio: string | undefined;
+  readonly horaFin: string | undefined;
 
   constructor(
     id: string,
     idUsuario: string,
     ocupacion?: string,
-    horaInicio?: number,
-    horaFin?: number
+    horaInicio?: string,
+    horaFin?: string
   ) {
     if (!id || id.trim().length === 0) {
       throw new Error('ID de configuración inválido');
@@ -20,12 +20,14 @@ export class UserSettings {
       throw new Error('ID de usuario inválido');
     }
 
-    if (horaInicio !== undefined && (horaInicio < 0 || horaInicio > 23)) {
-      throw new Error('La hora de inicio debe estar entre 0 y 23');
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
+
+    if (horaInicio !== undefined && !timeRegex.test(horaInicio)) {
+      throw new Error('La hora de inicio debe tener el formato HH:mm');
     }
 
-    if (horaFin !== undefined && (horaFin < 0 || horaFin > 23)) {
-      throw new Error('La hora de fin debe estar entre 0 y 23');
+    if (horaFin !== undefined && !timeRegex.test(horaFin)) {
+      throw new Error('La hora de fin debe tener el formato HH:mm');
     }
 
     if (horaInicio !== undefined && horaFin !== undefined && horaInicio >= horaFin) {
@@ -44,8 +46,10 @@ export class UserSettings {
       return true;
     }
 
+    const startHour = parseInt(this.horaInicio.split(':')[0] || '0', 10);
+    const endHour = parseInt(this.horaFin.split(':')[0] || '0', 10);
     const hour = date.getHours();
-    return hour >= this.horaInicio && hour < this.horaFin;
+    return hour >= startHour && hour < endHour;
   }
 
   equals(other: UserSettings): boolean {

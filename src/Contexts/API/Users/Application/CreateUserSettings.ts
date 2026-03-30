@@ -4,8 +4,8 @@ import type { IUserSettingsRepository } from '../Domain/UserRepository.js';
 export interface CreateUserSettingsRequest {
   idUsuario: string; // UUID (formerly number)
   ocupacion?: string;
-  horaInicio?: number;
-  horaFin?: number;
+  horaInicio?: string;
+  horaFin?: string;
 }
 
 export class CreateUserSettingsUseCase {

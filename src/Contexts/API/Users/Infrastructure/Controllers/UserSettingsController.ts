@@ -73,11 +73,10 @@ export class UserSettingsController {
         return;
       }
 
-      const { ocupacion, horaInicio, horaFin } = req.body as {
-        ocupacion?: string;
-        horaInicio?: number;
-        horaFin?: number;
-      };
+      const reqBody = req.body as Record<string, any>;
+      const ocupacion = reqBody.ocupacion as string | undefined;
+      const horaInicio = (reqBody.horaInicio ?? reqBody.hora_inicio) as string | undefined;
+      const horaFin = (reqBody.horaFin ?? reqBody.hora_fin) as string | undefined;
 
       const userSettings = await this.createUserSettingsUseCase.execute({
         idUsuario: resolvedUserId,
@@ -174,11 +173,10 @@ export class UserSettingsController {
         return;
       }
 
-      const { ocupacion, horaInicio, horaFin } = req.body as {
-        ocupacion?: string;
-        horaInicio?: number;
-        horaFin?: number;
-      };
+      const reqBody = req.body as Record<string, any>;
+      const ocupacion = reqBody.ocupacion as string | undefined;
+      const horaInicio = (reqBody.horaInicio ?? reqBody.hora_inicio) as string | undefined;
+      const horaFin = (reqBody.horaFin ?? reqBody.hora_fin) as string | undefined;
 
       const userSettings = await this.updateUserSettingsUseCase.execute({
         idUsuario: resolvedUserId,
