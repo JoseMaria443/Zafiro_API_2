@@ -221,13 +221,13 @@ export const createApp = (): Express => {
   });
 
   // Rutas de ajustes de usuario - Protegidas con JWT
-  app.post('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
+  app.post('/api/users/me/settings', (req: Request, res: Response, next: NextFunction) => {
     runProtected(req, res, () => {
       void userSettingsController.create(req, res);
     });
   });
 
-  app.get('/api/users/:userId/settings', (req: Request, res: Response, next: NextFunction) => {
+  app.get('/api/users/me/settings', (req: Request, res: Response, next: NextFunction) => {
     runProtected(req, res, () => {
       void userSettingsController.getByUserId(req, res);
     });
