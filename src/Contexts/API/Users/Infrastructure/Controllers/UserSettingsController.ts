@@ -67,11 +67,7 @@ export class UserSettingsController {
         return;
       }
 
-      // Verificar que :userId de la URL corresponde al token
-      const userIdParam = req.params.userId as string;
-      if (!this.validateOwnership(resolvedUserId, userIdParam, res)) {
-        return;
-      }
+
 
       const { ocupacion, horaInicio, horaFin } = req.body as {
         ocupacion?: string;
@@ -116,10 +112,7 @@ export class UserSettingsController {
         return;
       }
 
-      const userIdParam = req.params.userId as string;
-      if (!this.validateOwnership(resolvedUserId, userIdParam, res)) {
-        return;
-      }
+
 
       const userSettings = await this.searchUserSettingsUseCase.execute(resolvedUserId);
 
