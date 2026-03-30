@@ -22,8 +22,7 @@ export class AlgoritmoController {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': token,
-        },
-        body: JSON.stringify(req.body),
+        }
       });
 
       if (!respuestaAlgoritmo.ok) {
