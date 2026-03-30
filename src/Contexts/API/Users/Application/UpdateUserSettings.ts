@@ -16,11 +16,7 @@ export class UpdateUserSettingsUseCase {
       throw new Error('ID de usuario inválido');
     }
 
-    if (request.horaInicio !== undefined && request.horaFin !== undefined) {
-      if (request.horaInicio >= request.horaFin) {
-        throw new Error('La hora de inicio debe ser anterior a la hora de fin');
-      }
-    }
+
 
     // Obtener la configuración actual
     const currentSettings = await this.userSettingsRepository.findByUserId(request.idUsuario);

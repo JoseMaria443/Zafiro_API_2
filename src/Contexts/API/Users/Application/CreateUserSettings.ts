@@ -18,11 +18,7 @@ export class CreateUserSettingsUseCase {
 
     const id = crypto.randomUUID();
 
-    if (request.horaInicio !== undefined && request.horaFin !== undefined) {
-      if (request.horaInicio >= request.horaFin) {
-        throw new Error('La hora de inicio debe ser anterior a la hora de fin');
-      }
-    }
+
 
     const userSettings = new UserSettings(
       id,

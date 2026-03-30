@@ -30,9 +30,7 @@ export class UserSettings {
       throw new Error('La hora de fin debe tener el formato HH:mm');
     }
 
-    if (horaInicio !== undefined && horaFin !== undefined && horaInicio >= horaFin) {
-      throw new Error('La hora de inicio debe ser anterior a la hora de fin');
-    }
+
 
     this.id = id;
     this.idUsuario = idUsuario;
@@ -49,6 +47,13 @@ export class UserSettings {
     const startHour = parseInt(this.horaInicio.split(':')[0] || '0', 10);
     const endHour = parseInt(this.horaFin.split(':')[0] || '0', 10);
     const hour = date.getHours();
+    
+    if (startHour > endHour) {
+      // El horario cruza la medianoche (ej. de 23:00 a 05:45)
+      return hour >= startHour || hour < endHour;
+    }
+    
+    // El horario es en el mismo día (ej. de 08:00 a 18:00)
     return hour >= startHour && hour < endHour;
   }
 
