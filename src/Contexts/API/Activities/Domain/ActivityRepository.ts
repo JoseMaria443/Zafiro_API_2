@@ -8,6 +8,8 @@ export interface IActivityRepository {
 
   findByGoogleEventId(googleEventId: string): Promise<Activity | null>;
 
+  findByGoogleEventIds(googleEventIds: string[]): Promise<Map<string, Activity>>;
+
   findByUserId(idUsuario: string): Promise<Activity[]>; // UUID (formerly number)
 
   findByUserIdAndDate(idUsuario: string, date: Date): Promise<Activity[]>; // UUID (formerly number)

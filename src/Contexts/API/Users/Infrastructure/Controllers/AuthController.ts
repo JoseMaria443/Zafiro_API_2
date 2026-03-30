@@ -51,6 +51,7 @@ interface GoogleCalendarEvent {
   organizer?: {
     email?: string;
   };
+  recurringEventId?: string;
   start?: EventDateTime;
   end?: EventDateTime;
   created?: string;
@@ -104,7 +105,8 @@ export class AuthController {
    */
   async loginSession(req: Request, res: Response): Promise<void> {
     try {
-      const tokenFromHeader = (req.headers.authorization && typeof req.headers.authorization === 'string') ? req.headers.authorization.split(' ')[1] : null;
+      const raw = req.headers.authorization ?? '';
+      const tokenFromHeader = raw.startsWith('Bearer ') ? raw.slice(7).trim() : raw.trim() || null;
       if (!tokenFromHeader) {
         res.status(400).json({
           success: false,
@@ -113,7 +115,7 @@ export class AuthController {
         return;
       }
 
-      const { user, isNewUser } = await this.loginUserUseCase.execute('tokenFromHeader');
+      const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
       res.status(200).json({
         success: true,
         message: isNewUser ? 'Usuario creado y sesión iniciada' : 'Sesión iniciada correctamente',
@@ -139,7 +141,8 @@ export class AuthController {
    */
   async registerSession(req: Request, res: Response): Promise<void> {
     try {
-      const tokenFromHeader = (req.headers.authorization && typeof req.headers.authorization === 'string') ? req.headers.authorization : null;
+      const raw = req.headers.authorization ?? '';
+      const tokenFromHeader = raw.startsWith('Bearer ') ? raw.slice(7).trim() : raw.trim() || null;
       if (!tokenFromHeader) {
         res.status(400).json({
           success: false,
@@ -148,7 +151,7 @@ export class AuthController {
         return;
       }
 
-      const { user, isNewUser } = await this.loginUserUseCase.execute('tokenFromHeader');
+      const { user, isNewUser } = await this.loginUserUseCase.execute(tokenFromHeader);
 
       if (!isNewUser) {
         res.status(200).json({
@@ -333,7 +336,7 @@ export class AuthController {
   }
 
   async googleCallback(req: Request, res: Response): Promise<void> {
-    const calendarPageUrl = process.env.FRONTEND_URL || 'https://zafiro-frontend.vercel.app';
+    const calendarPageUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const redirectUrl = `${calendarPageUrl}/calendar`;
 
     try {
@@ -345,13 +348,15 @@ export class AuthController {
         `[GOOGLE_OAUTH] callback recibido. hasCode=${typeof code === 'string'}, hasState=${typeof state === 'string'}`
       );
 
-      if (typeof code !== 'string' || typeof state !== 'string') {
-        console.warn('[GOOGLE_OAUTH] callback con parámetros inválidos de code/state');
-        res.redirect(`${redirectUrl}?error=invalid_callback`);
+      const googleError = req.query.error;
+      if (typeof googleError === 'string') {
+        console.warn('[GOOGLE_OAUTH] Autorización denegada o error de Google');
+        res.redirect(`${redirectUrl}?error=${googleError}`);
         return;
       }
+      
 
-      const statePayload = this.verifyState(state);
+      const statePayload = this.verifyState(String(state));
       if (!statePayload) {
         console.warn('[GOOGLE_OAUTH] callback rechazado: state inválido o expirado');
         res.redirect(`${redirectUrl}?error=invalid_state`);
@@ -377,7 +382,7 @@ export class AuthController {
         return;
       }
 
-      const tokenData = await this.exchangeGoogleCode(code);
+      const tokenData = await this.exchangeGoogleCode(String(code));
       console.log(`[GOOGLE_OAUTH] token exchange exitoso para userId=${user.id}`);
 
       const googleUser = await this.getGoogleUserInfo(tokenData.access_token);
@@ -397,9 +402,12 @@ export class AuthController {
         `[GOOGLE_OAUTH] conexión guardada para userId=${user.id}, googleEmail=${googleUser.email || 'unknown'}`
       );
 
-      const syncResult = await this.syncGoogleCalendarForUser(user.id, true);
+      const syncResult = this.syncGoogleCalendarForUser(user.id, true).catch(err => {
+        console.log(`[GOOGLE_OAUTH] Error en la sincronización inicial en segundo plano para el usuario de ID ${user.id}:`, err)
+      });
       console.log(
-        `[GOOGLE_OAUTH] sincronización inicial completada para userId=${user.id}, imported=${syncResult.imported}`
+
+        `[GOOGLE_OAUTH] sincronización inicial completada para userId=${user.id}`
       );
 
       // Redireccionar simple al calendar
@@ -526,39 +534,44 @@ export class AuthController {
         throw new Error(payload.error?.message || 'No se pudo consultar Google Calendar');
       }
 
-      const normalizedItems = await Promise.all(
-        (payload.items || []).map(async (item) => {
-          const localActivity = item.id
-            ? await this.activityRepository.findByGoogleEventId(item.id)
-            : null;
+      const items = payload.items || [];
 
-          const localPriority = localActivity?.priority
-            ? {
-                valor: localActivity.priority.valor,
-                color: localActivity.priority.color,
-              }
-            : null;
+      // Una sola query para todos los eventos
+      const googleEventIds = items
+        .map((item) => item.id)
+        .filter((id): id is string => Boolean(id));
 
-          return {
-            ...item,
-            transparency:
-              item.transparency === 'transparent'
-                ? 'transparent'
-                : localActivity?.transparency === 'transparent'
-                  ? 'transparent'
-                  : 'opaque',
-            description: item.description ?? localActivity?.details?.description ?? null,
-            location: item.location ?? localActivity?.details?.location ?? null,
-            recurrence: item.recurrence ?? localActivity?.recurrence ?? null,
-            reminders: item.reminders ?? localActivity?.reminders ?? null,
-            etiqueta:
-              localActivity?.etiqueta ??
-              (localActivity?.idEtiqueta ? { id: localActivity.idEtiqueta } : null),
-            prioridad: localActivity?.prioridad ?? localPriority,
-            color: localActivity?.priority?.color ?? null,
-          };
-        })
-      );
+      const localActivitiesMap = await this.activityRepository
+        .findByGoogleEventIds(googleEventIds);
+
+      const normalizedItems = items.map((item) => {
+        // Para ocurrencias de eventos recurrentes, busca por ID exacto
+        // y si no encuentra, busca el evento padre (formato: parentId_fecha)
+        const parentId = item.recurringEventId ?? item.id?.split('_')[0];
+        const localActivity = item.id
+          ? (localActivitiesMap.get(item.id) ?? localActivitiesMap.get(parentId ?? ''))
+          : undefined;
+
+        const localPriority = localActivity?.priority
+          ? { valor: localActivity.priority.valor, color: localActivity.priority.color }
+          : null;
+
+        return {
+          ...item,
+          transparency: item.transparency === 'transparent' ? 'transparent' : 'opaque',
+          description: item.description ?? localActivity?.details?.description ?? null,
+          location: item.location ?? localActivity?.details?.location ?? null,
+          recurrence: item.recurrence ?? localActivity?.recurrence ?? null,
+          reminders: item.reminders ?? localActivity?.reminders ?? null,
+          etiqueta:
+            localActivity?.etiqueta ??
+            (localActivity?.idEtiqueta ? { id: localActivity.idEtiqueta } : null),
+          prioridad: localActivity?.prioridad ?? localPriority,
+          color: localActivity?.priority?.color ?? null,
+          localId: localActivity?.id ?? null,
+          source: localActivity?.source ?? 'google',
+        };
+      });
 
       res.status(200).json({
         success: true,
