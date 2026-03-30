@@ -4,9 +4,15 @@ export class AlgoritmoController {
   public async procesarDatos(req: Request, res: Response): Promise<void> {
     try {
       const token = req.headers.authorization;
+      const payload = req.get("payload")
 
       if (!token) {
         res.status(401).json({ error: 'Falta el JWT en la cabecera' });
+        return;
+      }
+
+      if (!payload){
+        res.status(400).json({ error: 'No se enviaron las actividades' })
         return;
       }
 
@@ -22,17 +28,13 @@ export class AlgoritmoController {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': token,
-        },
-        body: JSON.stringify(req.body),
+          'payload': payload
+        }
       });
 
       if (!respuestaAlgoritmo.ok) {
         let errorDelAlgoritmo;
-        try {
-          errorDelAlgoritmo = await respuestaAlgoritmo.json();
-        } catch {
-          errorDelAlgoritmo = { error: 'Error desconocido del algoritmo' };
-        }
+        errorDelAlgoritmo = await respuestaAlgoritmo.json();
         res.status(respuestaAlgoritmo.status).json(errorDelAlgoritmo);
         return;
       }
