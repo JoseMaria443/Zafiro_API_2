@@ -2,15 +2,15 @@ export class UserSettings {
   readonly id: string;
   readonly idUsuario: string; // UUID (formerly number)
   readonly ocupacion: string | undefined;
-  readonly horaInicio: string | undefined;
-  readonly horaFin: string | undefined;
+  readonly hora_inicio: string | undefined;
+  readonly hora_fin: string | undefined;
 
   constructor(
     id: string,
     idUsuario: string,
     ocupacion?: string,
-    horaInicio?: string,
-    horaFin?: string
+    hora_inicio?: string,
+    hora_fin?: string
   ) {
     if (!id || id.trim().length === 0) {
       throw new Error('ID de configuración inválido');
@@ -22,11 +22,11 @@ export class UserSettings {
 
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
 
-    if (horaInicio !== undefined && !timeRegex.test(horaInicio)) {
+    if (hora_inicio !== undefined && !timeRegex.test(hora_inicio)) {
       throw new Error('La hora de inicio debe tener el formato HH:mm');
     }
 
-    if (horaFin !== undefined && !timeRegex.test(horaFin)) {
+    if (hora_fin !== undefined && !timeRegex.test(hora_fin)) {
       throw new Error('La hora de fin debe tener el formato HH:mm');
     }
 
@@ -35,17 +35,17 @@ export class UserSettings {
     this.id = id;
     this.idUsuario = idUsuario;
     this.ocupacion = ocupacion;
-    this.horaInicio = horaInicio;
-    this.horaFin = horaFin;
+    this.hora_inicio = hora_inicio;
+    this.hora_fin = hora_fin;
   }
 
   isWithinWorkingHours(date: Date): boolean {
-    if (this.horaInicio === undefined || this.horaFin === undefined) {
+    if (this.hora_inicio === undefined || this.hora_fin === undefined) {
       return true;
     }
 
-    const startHour = parseInt(this.horaInicio.split(':')[0] || '0', 10);
-    const endHour = parseInt(this.horaFin.split(':')[0] || '0', 10);
+    const startHour = parseInt(this.hora_inicio.split(':')[0] || '0', 10);
+    const endHour = parseInt(this.hora_fin.split(':')[0] || '0', 10);
     const hour = date.getHours();
     
     if (startHour > endHour) {
@@ -61,8 +61,8 @@ export class UserSettings {
     return (
       this.idUsuario === other.idUsuario &&
       this.ocupacion === other.ocupacion &&
-      this.horaInicio === other.horaInicio &&
-      this.horaFin === other.horaFin
+      this.hora_inicio === other.hora_inicio &&
+      this.hora_fin === other.hora_fin
     );
   }
 }

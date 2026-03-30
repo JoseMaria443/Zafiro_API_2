@@ -4,8 +4,8 @@ import type { IUserSettingsRepository } from '../Domain/UserRepository.js';
 export interface CreateUserSettingsRequest {
   idUsuario: string; // UUID (formerly number)
   ocupacion?: string;
-  horaInicio?: string;
-  horaFin?: string;
+  hora_inicio?: string;
+  hora_fin?: string;
 }
 
 export class CreateUserSettingsUseCase {
@@ -24,8 +24,8 @@ export class CreateUserSettingsUseCase {
       id,
       request.idUsuario,
       request.ocupacion,
-      request.horaInicio,
-      request.horaFin
+      request.hora_inicio,
+      request.hora_fin
     );
 
     await this.userSettingsRepository.save(userSettings);

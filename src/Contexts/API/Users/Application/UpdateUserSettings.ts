@@ -1,22 +1,14 @@
 import { UserSettings } from '../Domain/UserSettings.js';
 import type { IUserSettingsRepository } from '../Domain/UserRepository.js';
-
-export interface UpdateUserSettingsRequest {
-  idUsuario: string; // UUID (formerly number)
-  ocupacion?: string;
-  horaInicio?: string;
-  horaFin?: string;
-}
+import type { CreateUserSettingsRequest } from './CreateUserSettings.js';
 
 export class UpdateUserSettingsUseCase {
   constructor(private userSettingsRepository: IUserSettingsRepository) {}
 
-  async execute(request: UpdateUserSettingsRequest): Promise<UserSettings> {
+  async execute(request: CreateUserSettingsRequest): Promise<UserSettings> {
     if (!request.idUsuario || request.idUsuario.trim().length === 0) {
       throw new Error('ID de usuario inválido');
     }
-
-
 
     // Obtener la configuración actual
     const currentSettings = await this.userSettingsRepository.findByUserId(request.idUsuario);
@@ -29,8 +21,8 @@ export class UpdateUserSettingsUseCase {
       currentSettings.id,
       request.idUsuario,
       request.ocupacion ?? currentSettings.ocupacion,
-      request.horaInicio ?? currentSettings.horaInicio,
-      request.horaFin ?? currentSettings.horaFin
+      request.hora_inicio ?? currentSettings.hora_inicio,
+      request.hora_fin ?? currentSettings.hora_fin
     );
 
     await this.userSettingsRepository.update(updatedSettings);

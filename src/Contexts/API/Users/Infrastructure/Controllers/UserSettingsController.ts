@@ -77,8 +77,8 @@ export class UserSettingsController {
       const userSettings = await this.createUserSettingsUseCase.execute({
         idUsuario: resolvedUserId,
         ocupacion,
-        horaInicio,
-        horaFin,
+        hora_inicio: horaInicio,
+        hora_fin: horaFin,
       });
 
       res.status(201).json({
@@ -88,8 +88,8 @@ export class UserSettingsController {
           id: userSettings.id,
           idUsuario: userSettings.idUsuario,
           ocupacion: userSettings.ocupacion,
-          horaInicio: userSettings.horaInicio,
-          horaFin: userSettings.horaFin,
+          hora_inicio: userSettings.hora_inicio,
+          hora_fin: userSettings.hora_fin,
         },
       });
     } catch (error) {
@@ -129,8 +129,8 @@ export class UserSettingsController {
           id: userSettings.id,
           idUsuario: userSettings.idUsuario,
           ocupacion: userSettings.ocupacion,
-          horaInicio: userSettings.horaInicio,
-          horaFin: userSettings.horaFin,
+          hora_inicio: userSettings.hora_inicio,
+          hora_fin: userSettings.hora_fin,
         },
       });
     } catch (error) {
@@ -174,8 +174,8 @@ export class UserSettingsController {
       const userSettings = await this.updateUserSettingsUseCase.execute({
         idUsuario: resolvedUserId,
         ocupacion,
-        horaInicio,
-        horaFin,
+        hora_inicio: horaInicio,
+        hora_fin: horaFin,
       });
 
       res.status(200).json({
@@ -185,8 +185,8 @@ export class UserSettingsController {
           id: userSettings.id,
           idUsuario: userSettings.idUsuario,
           ocupacion: userSettings.ocupacion,
-          horaInicio: userSettings.horaInicio,
-          horaFin: userSettings.horaFin,
+          hora_inicio: userSettings.hora_inicio,
+          hora_fin: userSettings.hora_fin,
         },
       });
     } catch (error) {
