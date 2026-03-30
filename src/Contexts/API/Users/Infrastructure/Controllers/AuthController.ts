@@ -537,16 +537,20 @@ export class AuthController {
       const items = payload.items || [];
 
       // Una sola query para todos los eventos
-      const googleEventIds = items
-        .map((item) => item.id)
-        .filter((id): id is string => Boolean(id));
+      const allRelevantIds = new Set<string>();
+      for (const item of items) {
+        if (item.id) allRelevantIds.add(item.id);
+        if (item.recurringEventId) allRelevantIds.add(item.recurringEventId);
+      }
 
+      // 1 sola query batch para todos los IDs 
       const localActivitiesMap = await this.activityRepository
-        .findByGoogleEventIds(googleEventIds);
+        .findByGoogleEventIds([...allRelevantIds]);
 
+      //  enriquecer cada evento — map síncrono, sin queries 
       const normalizedItems = items.map((item) => {
-        // Para ocurrencias de eventos recurrentes, busca por ID exacto
-        // y si no encuentra, busca el evento padre (formato: parentId_fecha)
+        // Busca por ID exacto primero (evento no recurrente o instancia guardada en BD).
+        // Si no encuentra, busca por el ID del padre (ocurrencia cuyo padre está en BD).
         const parentId = item.recurringEventId ?? item.id?.split('_')[0];
         const localActivity = item.id
           ? (localActivitiesMap.get(item.id) ?? localActivitiesMap.get(parentId ?? ''))
@@ -584,7 +588,9 @@ export class AuthController {
     } catch (error) {
       res.status(400).json({
         success: false,
-        message: error instanceof Error ? error.message : 'No se pudo consultar eventos de Google Calendar',
+        message: error instanceof Error
+          ? error.message
+          : 'No se pudo consultar eventos de Google Calendar',
       });
     }
   }
@@ -634,11 +640,10 @@ export class AuthController {
       throw new Error('Token sin datos mínimos de usuario');
     }
 
-    const user = await this.userRepository.findOrCreateByClerkProfile(
-      requestUser.clerkUserId,
-      requestUser.correo,
-      requestUser.nombre || 'Usuario'
-    );
+    const user = await this.userRepository.findByClerkUserId(requestUser.clerkUserId);
+    if (!user) {
+      throw new Error('Usuario no registrado. Llama primero a /api/auth/session');
+    }
 
     if (expectedCorreo && user.correo.toLowerCase() !== expectedCorreo.toLowerCase()) {
       throw new Error('El correo proporcionado no coincide con el usuario autenticado en Clerk');

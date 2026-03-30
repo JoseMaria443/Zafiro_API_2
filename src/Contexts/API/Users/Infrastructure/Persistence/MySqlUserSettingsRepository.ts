@@ -11,7 +11,7 @@ export class MySqlUserSettingsRepository implements IUserSettingsRepository {
     await this.db.query(
       `INSERT INTO ajustes_usuario (id, id_usuario, ocupacion, hora_inicio, hora_fin) 
        VALUES ($1, $2, $3, $4, $5)`,
-      [id, settings.idUsuario, settings.ocupacion || null, settings.horaInicio || null, settings.horaFin || null]
+      [id, settings.idUsuario, settings.ocupacion || null, settings.hora_inicio || null, settings.hora_fin || null]
     );
   }
 
@@ -40,7 +40,7 @@ export class MySqlUserSettingsRepository implements IUserSettingsRepository {
       `UPDATE ajustes_usuario 
        SET ocupacion = $1, hora_inicio = $2, hora_fin = $3
        WHERE id_usuario = $4`,
-      [settings.ocupacion || null, settings.horaInicio || null, settings.horaFin || null, settings.idUsuario]
+      [settings.ocupacion || null, settings.hora_inicio || null, settings.hora_fin || null, settings.idUsuario]
     );
   }
 
