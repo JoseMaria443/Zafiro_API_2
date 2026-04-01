@@ -663,8 +663,9 @@ export class ActivityPostController {
     };
   }
 
-  private async deleteGoogleEventForActivity(activity: Activity): Promise<void> {
-    if (!activity.googleEventId) {
+  private async deleteGoogleEventForActivity(activity: Activity, overrideGoogleEventId?: string): Promise<void> {
+    const targetId = overrideGoogleEventId || activity.googleEventId;
+    if (!targetId) {
       return;
     }
 
@@ -674,7 +675,7 @@ export class ActivityPostController {
     }
 
     let accessToken = await this.getValidGoogleAccessToken(connection);
-    const endpoint = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(activity.googleEventId)}`;
+    const endpoint = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(targetId)}`;
     let response = await fetch(endpoint, {
       method: 'DELETE',
       headers: {
@@ -695,6 +696,79 @@ export class ActivityPostController {
     if (!response.ok && response.status !== 404 && response.status !== 410) {
       const payload = (await response.json()) as { error?: { message?: string } };
       throw new Error(payload.error?.message || 'No se pudo eliminar evento en Google Calendar');
+    }
+  }
+
+  private async truncateGoogleEventRecurrence(activity: Activity, masterId: string, cutOffDateStr: string): Promise<void> {
+    const connection = await this.getGoogleConnectionByUserId(activity.idUsuario);
+    if (!connection || !connection.isActive) return;
+
+    let accessToken = await this.getValidGoogleAccessToken(connection);
+    const endpoint = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(masterId)}`;
+
+    let getResponse = await fetch(endpoint, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!getResponse.ok && this.isGoogleAuthError(getResponse.status)) {
+      accessToken = await this.refreshAndPersistGoogleAccessToken(connection);
+      getResponse = await fetch(endpoint, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+    }
+
+    if (!getResponse.ok) {
+      if (getResponse.status === 404 || getResponse.status === 410) return;
+      throw new Error('No se pudo obtener el evento maestro de Google Calendar para truncarlo');
+    }
+
+    const masterEvent = (await getResponse.json()) as { recurrence?: string[] };
+    if (!masterEvent.recurrence || masterEvent.recurrence.length === 0) {
+      return; 
+    }
+
+    const targetMillis = new Date(`${cutOffDateStr}T00:00:00-06:00`).getTime();
+    if (Number.isNaN(targetMillis)) {
+       throw new Error('Formato de fecha de corte inválido');
+    }
+    const previousDayMillis = targetMillis - 1000;
+    const untilDate = new Date(previousDayMillis);
+    const untilStr = untilDate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+
+    const newRecurrence = masterEvent.recurrence.map((rule) => {
+      if (!rule.toUpperCase().startsWith('RRULE:')) return rule;
+      
+      const parts = rule.replace(/^RRULE:/i, '').split(';');
+      const filteredParts = parts.filter(p => !p.toUpperCase().startsWith('UNTIL='));
+      filteredParts.push(`UNTIL=${untilStr}`);
+      return `RRULE:${filteredParts.join(';')}`;
+    });
+
+    let patchResponse = await fetch(endpoint, {
+      method: 'PATCH',
+      headers: { 
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ recurrence: newRecurrence })
+    });
+
+    if (!patchResponse.ok && this.isGoogleAuthError(patchResponse.status)) {
+      accessToken = await this.refreshAndPersistGoogleAccessToken(connection);
+      patchResponse = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: { 
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ recurrence: newRecurrence })
+      });
+    }
+
+    if (!patchResponse.ok) {
+      throw new Error('No se pudo truncar la recurrencia en Google Calendar');
     }
   }
 
@@ -1238,11 +1312,25 @@ export class ActivityPostController {
         return;
       }
 
-      if (existing.googleEventId) {
-        await this.deleteGoogleEventForActivity(existing);
-      }
+      const mode = (req.query.mode as string) || 'single';
+      const dateParam = req.query.date as string | undefined;
 
-      await this.activityRepository.delete(existing.id);
+      if (existing.googleEventId) {
+        if (mode === 'all') {
+          const masterId = existing.googleEventId.split('_')[0] as string;
+          await this.deleteGoogleEventForActivity(existing, masterId);
+          await this.activityRepository.deleteByGoogleMasterId(existing.idUsuario as string, masterId);
+        } else if (mode === 'thisAndFollowing' && dateParam) {
+          const masterId = existing.googleEventId.split('_')[0] as string;
+          await this.truncateGoogleEventRecurrence(existing, masterId, dateParam as string);
+          await this.activityRepository.deleteByGoogleMasterIdAndDate(existing.idUsuario as string, masterId, dateParam as string);
+        } else {
+          await this.deleteGoogleEventForActivity(existing);
+          await this.activityRepository.delete(existing.id);
+        }
+      } else {
+        await this.activityRepository.delete(existing.id);
+      }
 
       res.status(200).json({
         success: true,
