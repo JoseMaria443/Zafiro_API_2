@@ -363,8 +363,12 @@ export class ActivityPostController {
       payload.description = activity.details.description;
     }
 
-    if (activity.recurrence && activity.recurrence.length > 0) {
-      payload.recurrence = activity.recurrence;
+    if (activity.recurrence) {
+      if (activity.recurrence.length > 0) {
+        payload.recurrence = activity.recurrence;
+      } else {
+        payload.recurrence = null;
+      }
     }
 
     if (activity.reminders) {
