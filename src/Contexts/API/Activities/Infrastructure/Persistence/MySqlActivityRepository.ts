@@ -535,7 +535,7 @@ export class MySqlActivityRepository implements IActivityRepository {
        ON CONFLICT (id_usuario, google_calendar_id, google_event_id)
        DO UPDATE SET
          summary = EXCLUDED.summary,
-         source = 'google',
+         source = actividades.source,
          status = EXCLUDED.status,
          start_datetime = EXCLUDED.start_datetime,
          end_datetime = EXCLUDED.end_datetime,

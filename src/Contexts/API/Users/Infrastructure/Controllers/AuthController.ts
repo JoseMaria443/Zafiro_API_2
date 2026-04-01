@@ -559,17 +559,17 @@ export class AuthController {
         return {
           ...item,
           transparency: item.transparency === 'transparent' ? 'transparent' : 'opaque',
-          description: item.description ?? localActivity?.details?.description ?? null,
-          location: item.location ?? localActivity?.details?.location ?? null,
-          recurrence: item.recurrence ?? localActivity?.recurrence ?? null,
-          reminders: item.reminders ?? localActivity?.reminders ?? null,
-          etiqueta:
-            localActivity?.etiqueta ??
-            (localActivity?.idEtiqueta ? { id: localActivity.idEtiqueta } : null),
-          prioridad: localActivity?.prioridad ?? localPriority,
+          description: localActivity?.details?.description ?? item.description ?? null,
+          location: localActivity?.details?.location ?? item.location ?? null,
+          recurrence: localActivity?.recurrence ?? item.recurrence ?? null,
+          reminders: localActivity?.reminders ?? item.reminders ?? null,
+          etiqueta: localActivity
+            ? (localActivity.etiqueta ?? (localActivity.idEtiqueta ? { id: localActivity.idEtiqueta } : null))
+            : null,
+          prioridad: localActivity ? (localActivity.prioridad ?? localPriority) : null,
           color: localActivity?.priority?.color ?? null,
           localId: localActivity?.id ?? null,
-          source: localActivity?.source ?? 'google',
+          source: localActivity ? 'local' : 'google',
         };
       });
 
