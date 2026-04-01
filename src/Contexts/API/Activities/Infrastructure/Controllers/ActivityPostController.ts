@@ -758,10 +758,15 @@ export class ActivityPostController {
 
   private buildUpdatedActivity(existing: Activity, bodyParams: Record<string, any>): Activity {
     const summary = bodyParams.summary ?? existing.summary;
-    const normalizedRecurrence = this.buildGoogleRecurrence(bodyParams) ?? bodyParams.recurrence ?? existing.recurrence;
-    const normalizedFrecuencia =
-      this.resolveLocalFrecuencia(bodyParams.frecuencia ?? bodyParams.idFrecuencia, normalizedRecurrence) ??
-      existing.frecuencia;
+    const explicitlyRemoveRecurrence = bodyParams.recurrence === null || (Array.isArray(bodyParams.recurrence) && bodyParams.recurrence.length === 0);
+    const normalizedRecurrence = explicitlyRemoveRecurrence
+      ? []
+      : this.buildGoogleRecurrence(bodyParams) ?? bodyParams.recurrence ?? existing.recurrence;
+    const rawFrecuencia = bodyParams.frecuencia ?? bodyParams.idFrecuencia;
+    const explicitlyRemoveFrecuencia = explicitlyRemoveRecurrence || rawFrecuencia === null;
+    const normalizedFrecuencia = explicitlyRemoveFrecuencia
+      ? undefined
+      : this.resolveLocalFrecuencia(rawFrecuencia, normalizedRecurrence) ?? existing.frecuencia;
     const normalizedTransparency =
       this.normalizeTransparency(bodyParams.transparency) ?? existing.transparency ?? 'opaque';
     const updatedCategoryId = this.resolveUpdatedCategoryId(existing, bodyParams);
