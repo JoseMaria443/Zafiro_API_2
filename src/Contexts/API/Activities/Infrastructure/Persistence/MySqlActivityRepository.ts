@@ -4,7 +4,7 @@ import { PostgresConnection } from '../../../../../Shared/Infrastructure/Databas
 import { ActivityDetails } from '../../Domain/ActivityDetails.js';
 import { ActivityPriority, PriorityLevel } from '../../Domain/ActivityPriority.js';
 import type { EventDateTime, EventActor, EventReminders } from '../../Domain/Activity.js';
-import { expandActivities, getDefaultExpansionWindow } from '../../../../../Shared/Infrastructure/Utils/RecurrenceExpander.js';
+
 
 export interface GoogleCalendarEventInput {
   id: string;
@@ -356,9 +356,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       [idUsuario]
     );
 
-    const rawActivities = result.rows.map((row: any) => this.mapRowToActivity(row));
-    const window = getDefaultExpansionWindow();
-    return expandActivities(rawActivities, window.from, window.to);
+    return result.rows.map((row: any) => this.mapRowToActivity(row));
   }
 
   async findByUserIdAndDate(idUsuario: string, date: Date): Promise<Activity[]> {
@@ -374,48 +372,12 @@ export class MySqlActivityRepository implements IActivityRepository {
        LEFT JOIN prioridad p ON ac.id = p.id_actividad
        LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
        WHERE ac.id_usuario = $1 
-         AND (ac.start_date = $2 OR DATE(ac.start_datetime) = $2 OR ac.recurrence IS NOT NULL)
+         AND (ac.start_date = $2 OR DATE(ac.start_datetime) = $2)
        ORDER BY ac.start_datetime DESC`,
       [idUsuario, targetDate]
     );
 
-    const rawActivities = result.rows.map((row: any) => this.mapRowToActivity(row));
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
-    
-    return expandActivities(rawActivities, dayStart, dayEnd);
-  }
-
-  async findByUserIdInRange(idUsuario: string, from: Date, to: Date): Promise<Activity[]> {
-    const result = await this.db.query(
-      `SELECT ac.*, 
-              ad.id as detalle_id, ad.description, ad.reminders_use_default, ad.reminders_overrides,
-              p.id as prioridad_id, p.valor as prioridad_valor, p.color as prioridad_color,
-              e.id as etiqueta_id, e.nombre as etiqueta_nombre, NULL::character varying as etiqueta_transparencia, e.color as etiqueta_color
-       FROM actividades_completa ac
-       LEFT JOIN actividades_detalles ad ON ac.id = ad.id_actividad
-       LEFT JOIN prioridad p ON ac.id = p.id_actividad
-       LEFT JOIN etiquetas e ON ac.id_etiqueta = e.id
-       WHERE ac.id_usuario = $1 
-         AND (
-           (ac.start_datetime >= $2 AND ac.start_datetime <= $3)
-           OR (ac.start_date >= $4 AND ac.start_date <= $5)
-           OR ac.recurrence IS NOT NULL
-         )
-       ORDER BY ac.start_datetime ASC`,
-      [
-        idUsuario, 
-        from.toISOString(), 
-        to.toISOString(), 
-        from.toISOString().split('T')[0], 
-        to.toISOString().split('T')[0]
-      ]
-    );
-
-    const rawActivities = result.rows.map((row: any) => this.mapRowToActivity(row));
-    return expandActivities(rawActivities, from, to);
+    return result.rows.map((row: any) => this.mapRowToActivity(row));
   }
 
   async findByTagId(idEtiqueta: number): Promise<Activity[]> {

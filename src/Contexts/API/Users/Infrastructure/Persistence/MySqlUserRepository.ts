@@ -85,7 +85,6 @@ export class MySqlUserRepository implements IUserRepository {
     );
   }
 
-  
   async findByClerkUserId(clerkUserId: string): Promise<User | null> {
     const result = await this.db.query(
       'SELECT * FROM usuarios WHERE clerk_user_id = $1',

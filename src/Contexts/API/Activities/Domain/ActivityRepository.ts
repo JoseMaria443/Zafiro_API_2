@@ -14,8 +14,6 @@ export interface IActivityRepository {
 
   findByUserIdAndDate(idUsuario: string, date: Date): Promise<Activity[]>; // UUID (formerly number)
 
-  findByUserIdInRange(idUsuario: string, from: Date, to: Date): Promise<Activity[]>;
-
   findByTagId(idEtiqueta: number): Promise<Activity[]>;
 
   update(activity: Activity): Promise<void>;

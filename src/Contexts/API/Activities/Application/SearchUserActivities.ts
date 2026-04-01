@@ -27,26 +27,6 @@ export class SearchUserActivitiesUseCase {
     return await this.activityRepository.findByUserIdAndDate(idUsuario, date);
   }
 
-  async activitiesByUserAndDateRange(
-    idUsuario: string,
-    from: Date,
-    to: Date
-  ): Promise<Activity[]> {
-    if (!idUsuario || idUsuario.trim().length === 0) {
-      throw new Error('ID de usuario inválido');
-    }
-
-    if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-      throw new Error('Fechas inválidas');
-    }
-
-    if (from.getTime() > to.getTime()) {
-      throw new Error('from no puede ser mayor a to');
-    }
-
-    return await this.activityRepository.findByUserIdInRange(idUsuario, from, to);
-  }
-
   async activitiesByTag(idEtiqueta: number): Promise<Activity[]> {
     if (idEtiqueta < 1) {
       throw new Error('ID de etiqueta inválido');
