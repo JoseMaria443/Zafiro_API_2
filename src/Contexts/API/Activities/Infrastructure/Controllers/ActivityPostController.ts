@@ -844,7 +844,9 @@ export class ActivityPostController {
 
     return {
       id: activity.googleEventId || activity.id,
-      localId: activity.id,
+      localId: activity.recurringEventId ?? activity.id,
+      isOccurrence: !!activity.recurringEventId,
+      baseActivityId: activity.recurringEventId || null,
       kind: activity.kind,
       etag: activity.etag,
       htmlLink: activity.htmlLink,
@@ -1433,14 +1435,7 @@ export class ActivityPostController {
         return;
       }
 
-      const activities = await this.searchActivityUseCase.allActivitiesByUser(idUsuario);
-      const filtered = activities.filter((activity) => {
-        const timestamp = this.getActivityTimestamp(activity);
-        if (timestamp === null) {
-          return false;
-        }
-        return timestamp >= fromTimestamp && timestamp <= toTimestamp;
-      });
+      const filtered = await this.searchActivityUseCase.activitiesByUserAndDateRange(idUsuario, new Date(fromTimestamp), new Date(toTimestamp));
 
       res.status(200).json({
         success: true,
