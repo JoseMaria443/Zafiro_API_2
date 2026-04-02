@@ -1,7 +1,10 @@
 import type { Request, Response } from 'express';
-import { isValidJWT } from 'zod/v4/core';
+import { jwtService } from '../../../../../Shared/Infrastructure/Security/jwtService.js';
+import { AlgorithmResponse } from '../../Domain/Algorithm.js';
 
 export class AlgoritmoController {
+  private jwt = new jwtService()
+  
   public async procesarDatos(req: Request, res: Response): Promise<void> {
     try {
       const token = req.headers.authorization;
@@ -34,17 +37,19 @@ export class AlgoritmoController {
       });
 
       if (!respuestaAlgoritmo.ok) {
-        let errorDelAlgoritmo;
-        errorDelAlgoritmo = await respuestaAlgoritmo.json();
+        const errorDelAlgoritmo = await respuestaAlgoritmo.json();
         res.status(respuestaAlgoritmo.status).json(errorDelAlgoritmo);
         return;
       }
 
-      const datosFinalesProcesados:string = await respuestaAlgoritmo.json();
-      if (!isValidJWT(datosFinalesProcesados)){
+      const data: string = await respuestaAlgoritmo.json();
+
+      const decodedData = this.jwt.decodeData<AlgorithmResponse>(data)
+
+      if (!decodedData){
         res.status(500).json({
           success:false,
-          message:'Ocurrió un error al obtener la respuesta del algoritmo'
+          message:'Ocurrió un error al obtener la respuesta del algoritmo.'
         })
         return
       }
@@ -52,7 +57,7 @@ export class AlgoritmoController {
       res.status(200).json({
         success: true,
         message: 'Resultados enviados',
-        data: datosFinalesProcesados
+        data: decodedData
       });
     } catch (error) {
       res.status(500).json({ error: 'Error al comunicarse con el algoritmo' });
