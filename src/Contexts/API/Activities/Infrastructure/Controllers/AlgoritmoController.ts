@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { isValidJWT } from 'zod/v4/core';
 
 export class AlgoritmoController {
   public async procesarDatos(req: Request, res: Response): Promise<void> {
@@ -39,13 +40,19 @@ export class AlgoritmoController {
         return;
       }
 
-      const datosFinalesProcesados = await respuestaAlgoritmo.json();
+      const datosFinalesProcesados:string = await respuestaAlgoritmo.json();
+      if (!isValidJWT(datosFinalesProcesados)){
+        res.status(500).json({
+          success:false,
+          message:'Ocurrió un error al obtener la respuesta del algoritmo'
+        })
+        return
+      }
 
-      // Convertir el objeto a string para el header (puedes ajustar el nombre del header)
-      res.setHeader('X-Algoritmo-Result', encodeURIComponent(JSON.stringify(datosFinalesProcesados)));
       res.status(200).json({
         success: true,
-        message: 'Resultado enviado en el header X-Algoritmo-Result',
+        message: 'Resultados enviados',
+        data: datosFinalesProcesados
       });
     } catch (error) {
       res.status(500).json({ error: 'Error al comunicarse con el algoritmo' });
