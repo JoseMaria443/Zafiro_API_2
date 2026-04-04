@@ -19,11 +19,13 @@ export class jwtService {
         return decoded
     }
 
-    public encodeData(data: string) {
+    public encodeData(data: object) {
         if (!this.verifySecret()){
             return null
         }
-        const encoded = jwt.sign(data, this.jwtSecretKey)
+        const encoded = jwt.sign(data, this.jwtSecretKey, {
+            noTimestamp: true
+        })
         return encoded
     }
 }
