@@ -17,7 +17,7 @@ const ReminderType = z.object({
 })
 
 const TagType = z.object({
-    etiqueta: z.int().positive(),
+    etiqueta: z.int().min(0),
     color: z.string().min(7).max(7)
 })
 
@@ -56,9 +56,8 @@ export interface AlgorithmResponse {
 
 const ActivitiesType = z.object({
     defaultReminders: z.array(ReminderOverrideType),
-    items: z.array(AgendaType)
+    items: AgendaArrayType
 })
-type Activities = z.infer<typeof ActivitiesType>
 
 const RangoTiempoType = z.object({
     inicio: z.string(),
