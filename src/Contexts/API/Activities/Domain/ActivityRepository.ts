@@ -19,4 +19,8 @@ export interface IActivityRepository {
   update(activity: Activity): Promise<void>;
 
   delete(id: string): Promise<void>;
+
+  deleteByGoogleMasterId(idUsuario: string, masterId: string): Promise<void>;
+
+  deleteByGoogleMasterIdAndDate(idUsuario: string, masterId: string, fromDateISO: string): Promise<void>;
 }

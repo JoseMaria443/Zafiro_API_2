@@ -461,6 +461,22 @@ export class MySqlActivityRepository implements IActivityRepository {
     await this.db.query('DELETE FROM actividades WHERE id = $1', [id]);
   }
 
+  async deleteByGoogleMasterId(idUsuario: string, masterId: string): Promise<void> {
+    const pattern = `${masterId}%`;
+    await this.db.query('DELETE FROM actividades WHERE id_usuario = $1 AND google_event_id LIKE $2', [idUsuario, pattern]);
+  }
+
+  async deleteByGoogleMasterIdAndDate(idUsuario: string, masterId: string, fromDateISO: string): Promise<void> {
+    const pattern = `${masterId}%`;
+    await this.db.query(
+      `DELETE FROM actividades 
+       WHERE id_usuario = $1 
+         AND google_event_id LIKE $2 
+         AND (start_date >= $3 OR DATE(start_datetime) >= $3)`,
+      [idUsuario, pattern, fromDateISO]
+    );
+  }
+
   async upsertGoogleEvent(idUsuario: string, event: GoogleCalendarEventInput): Promise<void> {
     if (!event.id) {
       return;
@@ -520,7 +536,7 @@ export class MySqlActivityRepository implements IActivityRepository {
        ON CONFLICT (id_usuario, google_calendar_id, google_event_id)
        DO UPDATE SET
          summary = EXCLUDED.summary,
-         source = 'google',
+         source = actividades.source,
          status = EXCLUDED.status,
          start_datetime = EXCLUDED.start_datetime,
          end_datetime = EXCLUDED.end_datetime,
