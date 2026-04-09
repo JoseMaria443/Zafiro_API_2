@@ -48,8 +48,8 @@ CREATE TABLE public.ajustes_usuario (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   id_usuario uuid NOT NULL,
   ocupacion character varying,
-  hora_inicio integer,
-  hora_fin integer,
+  hora_inicio character varying,
+  hora_fin character varying,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT ajustes_usuario_pkey PRIMARY KEY (id),
@@ -111,4 +111,23 @@ CREATE TABLE public.usuarios (
   google_reminders_use_default boolean,
   google_reminders_overrides jsonb,
   CONSTRAINT usuarios_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE metricas_hipotesis_usuarios(
+    id SERIAL PRIMARY KEY,
+    id_usuario UUID NOT NULL REFERENCES usuarios(id),
+    demanda_fisica NUMERIC NOT NULL CHECK (demanda_fisica > 0.0),
+    demanda_mental NUMERIC NOT NULL CHECK (demanda_mental > 0.0),
+    demanda_temporal NUMERIC NOT NULL CHECK (demanda_temporal > 0.0),
+    rendimiento NUMERIC NOT NULL CHECK (rendimiento > 0.0),
+    esfuerzo NUMERIC NOT NULL CHECK (esfuerzo > 0.0),
+    frustracion NUMERIC NOT NULL CHECK (frustracion > 0.0),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE metrica_algoritmo(
+    id SERIAL PRIMARY KEY,
+    id_usuario UUID NOT NULL REFERENCES usuarios(id),
+    exito BOOLEAN NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

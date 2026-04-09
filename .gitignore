@@ -14,7 +14,8 @@ bd/
 # Archivos del sistema
 .DS_Store
 Thumbs.db
-
+/bd
+bd
 # Archivos del editor
 .vscode/
 .idea/

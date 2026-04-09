@@ -73,28 +73,5 @@ export class AlgoritmoController {
         }
     }
 
-    public async healthCheck(res: Response):Promise<void> {
-        const urlAlgoritmo = process.env.ALGORITMO_API;
-        try {
-            const response = await fetch(`${urlAlgoritmo}/api/health`)
-
-            if (!response.ok) {
-                let errorDelAlgoritmo;
-                try {
-                errorDelAlgoritmo = await response.json();
-                } catch {
-                errorDelAlgoritmo = { error: 'Error desconocido del algoritmo' };
-                }
-                res.status(response.status).json(errorDelAlgoritmo);
-                return;
-            }
-            const datosFinales = await response.json();
-            res.status(200).json({
-                success: true,
-                data: datosFinales
-            })
-        } catch (e) {
-            res.status(500).json({ error:'Error al conectarse a la API' })
-        }
-    }
+    // Método healthCheck eliminado por no tener funcionalidad requerida.
 }

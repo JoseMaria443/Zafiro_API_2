@@ -31,6 +31,8 @@ import { MySqlPriorityRepository } from './Contexts/API/Priorities/Infrastructur
 import { AuthMiddleware } from './Shared/Infrastructure/Middleware/AuthMiddleware.js';
 import { AlgoritmoController } from './Contexts/API/Activities/Infrastructure/Controllers/AlgoritmoController.js';
 
+import { MetricasHipotesisUsuariosController, MetricaAlgoritmoController } from './Contexts/API/Activities/Infrastructure/Controllers/MetricasController.js';
+
 export const createApp = (): Express => {
   const app = express();
 
@@ -112,6 +114,10 @@ export const createApp = (): Express => {
   );
 
   const algorithmController = new AlgoritmoController()
+
+  // Controladores de métricas
+  const metricasHipotesisUsuariosController = new MetricasHipotesisUsuariosController();
+  const metricaAlgoritmoController = new MetricaAlgoritmoController();
 
   const runProtected = (req: Request, res: Response, action: () => void): void => {
     void authMiddleware.authenticate(req, res, action);
@@ -366,6 +372,30 @@ export const createApp = (): Express => {
     res.status(404).json({
       success: false,
       message: 'Ruta no encontrada',
+    });
+  });
+
+  // Endpoints para metricas_hipotesis_usuarios
+  app.post('/api/metricas-hipotesis-usuarios', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void metricasHipotesisUsuariosController.create(req, res);
+    });
+  });
+  app.get('/api/metricas-hipotesis-usuarios/:userId', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void metricasHipotesisUsuariosController.getByUser(req, res);
+    });
+  });
+
+  // Endpoints para metrica_algoritmo
+  app.post('/api/metrica-algoritmo', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void metricaAlgoritmoController.create(req, res);
+    });
+  });
+  app.get('/api/metrica-algoritmo/:userId', (req: Request, res: Response) => {
+    runProtected(req, res, () => {
+      void metricaAlgoritmoController.getByUser(req, res);
     });
   });
 
