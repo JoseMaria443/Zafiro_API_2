@@ -360,10 +360,6 @@ export const createApp = (): Express => {
     });
   });
 
-  app.get('/api/algorithm/health', (req: Request, res: Response) => {
-    void algorithmController.healthCheck(res)
-  })
-
   app.post('/api/algorithm/sort', (req: Request, res: Response) => {
     void algorithmController.procesarDatos(req, res)
   })
