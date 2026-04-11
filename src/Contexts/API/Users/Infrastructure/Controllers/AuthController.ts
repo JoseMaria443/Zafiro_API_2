@@ -295,9 +295,6 @@ export class AuthController {
       this.validateGoogleOAuthEnv();
       const expectedCorreo = this.extractExpectedEmail(req);
       const user = await this.resolveAuthenticatedUser(req, expectedCorreo);
-      console.log(
-        `[GOOGLE_OAUTH] connect iniciado para userId=${user.id}, clerkUserId=${user.clerkUserId}, expectedEmail=${user.correo || 'none'}`
-      );
 
       const state = this.signState({
         userId: user.id,
@@ -314,10 +311,6 @@ export class AuthController {
       authUrl.searchParams.set('include_granted_scopes', 'true');
       authUrl.searchParams.set('scope', this.getGoogleScopes());
       authUrl.searchParams.set('state', state);
-
-      console.log(
-        `[GOOGLE_OAUTH] connect URL generada para userId=${user.id}, redirectUri=${process.env.GOOGLE_REDIRECT_URI}`
-      );
 
       res.status(200).json({
         success: true,
@@ -344,9 +337,6 @@ export class AuthController {
 
       const code = req.query.code;
       const state = req.query.state;
-      console.log(
-        `[GOOGLE_OAUTH] callback recibido. hasCode=${typeof code === 'string'}, hasState=${typeof state === 'string'}`
-      );
 
       const googleError = req.query.error;
       if (typeof googleError === 'string') {
@@ -362,10 +352,6 @@ export class AuthController {
         res.redirect(`${redirectUrl}?error=invalid_state`);
         return;
       }
-
-      console.log(
-        `[GOOGLE_OAUTH] state verificado para userId=${statePayload.userId}, clerkUserId=${statePayload.clerkUserId}`
-      );
 
       const user = await this.userRepository.findById(statePayload.userId);
       if (!user) {
@@ -383,7 +369,6 @@ export class AuthController {
       }
 
       const tokenData = await this.exchangeGoogleCode(String(code));
-      console.log(`[GOOGLE_OAUTH] token exchange exitoso para userId=${user.id}`);
 
       const googleUser = await this.getGoogleUserInfo(tokenData.access_token);
       const expiresAt = this.computeExpiresAt(tokenData.expires_in);
@@ -398,17 +383,9 @@ export class AuthController {
         expiresAt,
       });
 
-      console.log(
-        `[GOOGLE_OAUTH] conexión guardada para userId=${user.id}, googleEmail=${googleUser.email || 'unknown'}`
-      );
-
       const syncResult = this.syncGoogleCalendarForUser(user.id, true).catch(err => {
-        console.log(`[GOOGLE_OAUTH] Error en la sincronización inicial en segundo plano para el usuario de ID ${user.id}:`, err)
+        console.log(`[GOOGLE_OAUTH] Error en la sincronización inicial en segundo plano para el usuario ${user.nombre}:`, err)
       });
-      console.log(
-
-        `[GOOGLE_OAUTH] sincronización inicial completada para userId=${user.id}`
-      );
 
       // Redireccionar simple al calendar
       res.redirect(`${redirectUrl}?success=true`);

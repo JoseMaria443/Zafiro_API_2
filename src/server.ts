@@ -7,16 +7,6 @@ const PORT = process.env.PORT || 8000;
 const server = app.listen(Number(PORT), '0.0.0.0', () => {
   console.log('\n Zafiro esta vivo \n');
   console.log('═══════════════════════════════════════════════════');
-  console.log(`Servidor local: http://localhost:${PORT}`);
-  console.log(`Servidor con ip:    http://0.0.0.0:${PORT}`);
-  console.log(`Entorno:               ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Verificación de estado:          http://localhost:${PORT}/health`);
-  console.log('═══════════════════════════════════════════════════');
-  console.log('\n📋 Endpoints disponibles:');
-  console.log(`   POST /api/auth/session - Login con Authorization Bearer Clerk`);
-  console.log(`   POST /api/auth/register/session - Registro con Authorization Bearer Clerk`);
-  console.log(`   POST /api/calendar/activities - Crear actividad`);
-  console.log(`   GET  /api/calendar/activities/user/:userId - Listar actividades\n`);
   
   // Verificar configuración
   const clerkConfigured = !!process.env.CLERK_SECRET_KEY;

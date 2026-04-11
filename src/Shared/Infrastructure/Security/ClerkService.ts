@@ -70,7 +70,7 @@ export class ClerkService {
         throw new Error('Token de Clerk inválido: email no encontrado');
       }
 
-      console.log(`      ✅ Token válido - Clerk User ID: ${clerkUserId}, Email: ${correo}`);
+      console.log(`      ✅ Token válido`);
 
       return {
         clerkUserId,

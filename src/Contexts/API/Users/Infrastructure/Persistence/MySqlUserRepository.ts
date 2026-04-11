@@ -46,12 +46,6 @@ export class MySqlUserRepository implements IUserRepository {
 
   async save(user: User): Promise<void> {
     try {
-      console.log(' [DB] Intentando guardar usuario en BD...');
-      console.log(`   → ID: ${user.id}`);
-      console.log(`   → Clerk ID: ${user.clerkUserId}`);
-      console.log(`   → Correo: ${user.correo}`);
-      console.log(`   → Nombre: ${user.nombre}`);
-      
       await this.db.query(
         `INSERT INTO usuarios (id, clerk_user_id, correo, nombre, token_google) 
         VALUES ($1, $2, $3, $4, $5)`,

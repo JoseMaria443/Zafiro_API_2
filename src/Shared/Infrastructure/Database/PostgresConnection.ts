@@ -43,7 +43,7 @@ export class PostgresConnection {
     try {
       const result = await this.pool.query(text, params);
       const duration = Date.now() - start;
-      console.log('Query ejecutado:', { text, duration, rows: result.rowCount });
+      console.log('Query ejecutado:', { duration, rows: result.rowCount });
       return result;
     } catch (error) {
       console.error('Error en query:', { text, error });
