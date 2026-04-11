@@ -8,3 +8,5 @@ export const TLXMetricType = z.object({
     esfuerzo: z.number().min(0),
     frustracion: z.number().min(0)
 })
+
+export type TLXMetric = z.infer<typeof TLXMetricType>
