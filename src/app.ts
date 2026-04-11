@@ -31,7 +31,8 @@ import { MySqlPriorityRepository } from './Contexts/API/Priorities/Infrastructur
 import { AuthMiddleware } from './Shared/Infrastructure/Middleware/AuthMiddleware.js';
 import { AlgoritmoController } from './Contexts/API/Activities/Infrastructure/Controllers/AlgoritmoController.js';
 
-import { MetricasHipotesisUsuariosController, MetricaAlgoritmoController } from './Contexts/API/Activities/Infrastructure/Controllers/MetricasController.js';
+import { MetricaAlgoritmoController } from './Contexts/API/Metric/Infrastructure/Controllers/SuccessMetricController.js';
+import { TLXMetricController } from './Contexts/API/Metric/Infrastructure/Controllers/TLXMetricController.js';
 
 export const createApp = (): Express => {
   const app = express();
@@ -116,7 +117,7 @@ export const createApp = (): Express => {
   const algorithmController = new AlgoritmoController()
 
   // Controladores de métricas
-  const metricasHipotesisUsuariosController = new MetricasHipotesisUsuariosController();
+  const TLXMetric = new TLXMetricController();
   const metricaAlgoritmoController = new MetricaAlgoritmoController();
 
   const runProtected = (req: Request, res: Response, action: () => void): void => {
@@ -374,12 +375,12 @@ export const createApp = (): Express => {
   // Endpoints para metricas_hipotesis_usuarios
   app.post('/api/metricas-hipotesis-usuarios', (req: Request, res: Response) => {
     runProtected(req, res, () => {
-      void metricasHipotesisUsuariosController.create(req, res);
+      void TLXMetric.create(req, res);
     });
   });
   // app.get('/api/metricas-hipotesis-usuarios/:userId', (req: Request, res: Response) => {
   //   runProtected(req, res, () => {
-  //     void metricasHipotesisUsuariosController.getByUser(req, res);
+  //     void TLXMetricController.getByUser(req, res);
   //   });
   // });
 
