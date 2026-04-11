@@ -377,11 +377,11 @@ export const createApp = (): Express => {
       void metricasHipotesisUsuariosController.create(req, res);
     });
   });
-  app.get('/api/metricas-hipotesis-usuarios/:userId', (req: Request, res: Response) => {
-    runProtected(req, res, () => {
-      void metricasHipotesisUsuariosController.getByUser(req, res);
-    });
-  });
+  // app.get('/api/metricas-hipotesis-usuarios/:userId', (req: Request, res: Response) => {
+  //   runProtected(req, res, () => {
+  //     void metricasHipotesisUsuariosController.getByUser(req, res);
+  //   });
+  // });
 
   // Endpoints para metrica_algoritmo
   app.post('/api/metrica-algoritmo', (req: Request, res: Response) => {
@@ -389,11 +389,11 @@ export const createApp = (): Express => {
       void metricaAlgoritmoController.create(req, res);
     });
   });
-  app.get('/api/metrica-algoritmo/:userId', (req: Request, res: Response) => {
-    runProtected(req, res, () => {
-      void metricaAlgoritmoController.getByUser(req, res);
-    });
-  });
+  // app.get('/api/metrica-algoritmo/:userId', (req: Request, res: Response) => {
+  //   runProtected(req, res, () => {
+  //     void metricaAlgoritmoController.getByUser(req, res);
+  //   });
+  // });
 
   app.use(
     (err: Error, req: Request, res: Response, next: NextFunction) => {
