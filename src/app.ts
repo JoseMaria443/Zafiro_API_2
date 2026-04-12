@@ -33,6 +33,7 @@ import { AlgoritmoController } from './Contexts/API/Activities/Infrastructure/Co
 
 import { MetricaAlgoritmoController } from './Contexts/API/Metric/Infrastructure/Controllers/SuccessMetricController.js';
 import { TLXMetricController } from './Contexts/API/Metric/Infrastructure/Controllers/TLXMetricController.js';
+import { MySqlSuccessMetricRepository } from './Contexts/API/Metric/Infrastructure/Persistence/MySqlSuccessMetricRepository.js';
 
 export const createApp = (): Express => {
   const app = express();
@@ -118,7 +119,9 @@ export const createApp = (): Express => {
 
   // Controladores de métricas
   const TLXMetric = new TLXMetricController();
-  const metricaAlgoritmoController = new MetricaAlgoritmoController();
+
+  const metricaAlgoritmoRepository = new MySqlSuccessMetricRepository()
+  const metricaAlgoritmoController = new MetricaAlgoritmoController(metricaAlgoritmoRepository);
 
   const runProtected = (req: Request, res: Response, action: () => void): void => {
     void authMiddleware.authenticate(req, res, action);
@@ -362,16 +365,11 @@ export const createApp = (): Express => {
   });
 
   app.post('/api/algorithm/sort', (req: Request, res: Response) => {
-    void algorithmController.procesarDatos(req, res)
+    runProtected(req, res, () => {
+      void algorithmController.procesarDatos(req, res)
+    })
   })
-
-  app.use((req: Request, res: Response) => {
-    res.status(404).json({
-      success: false,
-      message: 'Ruta no encontrada',
-    });
-  });
-
+  
   // Endpoints para metricas_hipotesis_usuarios
   app.post('/api/metricas-hipotesis-usuarios', (req: Request, res: Response) => {
     runProtected(req, res, () => {
@@ -385,7 +383,7 @@ export const createApp = (): Express => {
   // });
 
   // Endpoints para metrica_algoritmo
-  app.post('/api/metrica-algoritmo', (req: Request, res: Response) => {
+  app.post('/api/algorithm/success', (req: Request, res: Response) => {
     runProtected(req, res, () => {
       void metricaAlgoritmoController.create(req, res);
     });
@@ -395,6 +393,13 @@ export const createApp = (): Express => {
   //     void metricaAlgoritmoController.getByUser(req, res);
   //   });
   // });
+
+  app.use((req: Request, res: Response) => {
+    res.status(404).json({
+      success: false,
+      message: 'Ruta no encontrada',
+    });
+  });
 
   app.use(
     (err: Error, req: Request, res: Response, next: NextFunction) => {

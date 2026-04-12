@@ -5,11 +5,11 @@ import SuccessMetricRepository from "../../Domain/SuccessMetricRepository.js";
 export class MySqlSuccessMetricRepository implements SuccessMetricRepository {
     private db = PostgresConnection.getInstance()
 
-    async add(data: SuccessMetric): Promise<void> {
+    async add(data: boolean): Promise<void> {
         await this.db.query(`
-            INSERT INTO metrica_algoritmo (id_usuario, exito) VALUES ($1, $2)
+            INSERT INTO metrica_algoritmo (exito) VALUES ($1)
             `,
-            [data.id_usuario, data.exito]
+            [data]
         )
     }
 }
