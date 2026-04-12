@@ -371,11 +371,12 @@ export const createApp = (): Express => {
   })
   
   // Endpoints para metricas_hipotesis_usuarios
-  app.post('/api/metricas-hipotesis-usuarios', (req: Request, res: Response) => {
-    runProtected(req, res, () => {
-      void TLXMetric.create(req, res);
-    });
-  });
+  // app.post('/api/metricas-hipotesis-usuarios', (req: Request, res: Response) => {
+  //   runProtected(req, res, () => {
+  //     void TLXMetric.create(req, res);
+  //   });
+  // });
+  
   // app.get('/api/metricas-hipotesis-usuarios/:userId', (req: Request, res: Response) => {
   //   runProtected(req, res, () => {
   //     void TLXMetricController.getByUser(req, res);
