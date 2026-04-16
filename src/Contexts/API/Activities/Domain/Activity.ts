@@ -95,6 +95,7 @@ export class Activity {
     googleEventId?: string,
     frecuencia?: 'diaria' | 'semanal' | 'mensual' | 'anual'
   ) {
+    console.log(horaInicio, horaFin, "\n", start, end)
     if (!id || id.trim().length === 0) {
       throw new Error('ID de actividad inválido');
     }
