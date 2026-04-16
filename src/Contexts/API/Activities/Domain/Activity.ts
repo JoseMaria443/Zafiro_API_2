@@ -136,7 +136,8 @@ export class Activity {
       throw new Error('La hora de fin debe estar entre 0 y 23');
     }
 
-    if (horaInicio !== undefined && horaFin !== undefined && horaInicio >= horaFin) {
+    if (horaInicio !== undefined && horaFin !== undefined && horaInicio > horaFin) {
+      console.log(horaInicio, horaFin)
       throw new Error('La hora de inicio debe ser anterior a la hora de fin');
     }
 
