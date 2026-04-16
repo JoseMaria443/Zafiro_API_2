@@ -202,6 +202,7 @@ export class MySqlActivityRepository implements IActivityRepository {
       await client.query('BEGIN');
 
       // Insertar actividad principal con todos los campos de RF-03
+      console.log(new Date(activity.start.dateTime || '').toISOString(), activity.start.dateTime)
       const activityResult = await client.query(
         `INSERT INTO actividades (
           id,
