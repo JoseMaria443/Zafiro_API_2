@@ -13,7 +13,7 @@ export class MetricaAlgoritmoController {
       const { exito } = req.body
       if (exito === true || exito === false) {
         const response = await this.repository.add(exito)
-        res.status(200).json({ message: 'Métrica de algoritmo guardada' });
+        res.status(200).json({ success: true, message: 'Métrica de algoritmo guardada' });
       } else {
         res.status(400).json({ message: 'No se recibieron los datos correctamente' })
         return
